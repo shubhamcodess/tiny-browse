@@ -30,7 +30,7 @@ jobs:
     outputs:
       has_site: ${{ steps.detect.outputs.has_site }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Detect the site
         id: detect
         run: |
