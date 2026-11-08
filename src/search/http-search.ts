@@ -74,10 +74,11 @@ export function parseHttpSerp(def: ProviderDef, html: string, pageUrl: string, s
       return true;
     })
     .map((r, i) => ({ ...r, rank: i + 1, foundBy: ["selectors" as const] }));
+  const serpStatus = judge(signals, results, query);
   return {
     provider: def.name,
-    status: judge(signals, results, query),
-    results,
+    status: serpStatus,
+    results: serpStatus === "challenge" || serpStatus === "consent" ? [] : results,
     signals,
     strategies: { visual: 0, accessibility: 0, selectors: results.length },
   };

@@ -243,9 +243,11 @@ export async function readSerp(
   ];
   // Links still unresolved stay engine-internal and are dropped by the merge.
   const merged = mergeStrategies(remapUrls(strategies, followed), provider.internalHost);
+  const status = judge(inPage.signals, merged.results, opts.query);
   return {
-    status: judge(inPage.signals, merged.results, opts.query),
-    results: merged.results,
+    status,
+    // A CAPTCHA or consent page has no real results, whatever links it shows.
+    results: status === "challenge" || status === "consent" ? [] : merged.results,
     signals: inPage.signals,
     strategies: merged.counts,
   };

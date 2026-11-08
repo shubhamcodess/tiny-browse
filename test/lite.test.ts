@@ -82,4 +82,11 @@ describe("search results over plain HTTP", () => {
     const page = parseHttpSerp(PROVIDERS.duckduckgo, fixture("serp/duckduckgo-challenge.html"), "https://html.duckduckgo.com/html/?q=x", 202);
     expect(page.status).toBe("challenge");
   });
+
+  it("returns no results from a CAPTCHA page, even if it has result-shaped links", () => {
+    const html = fixture("serp/duckduckgo-results.html").replace("<body>", "<body><p>Unfortunately, bots use DuckDuckGo too.</p>");
+    const page = parseHttpSerp(PROVIDERS.duckduckgo, html, "https://html.duckduckgo.com/html/?q=x", 200, "python list comprehension");
+    expect(page.status).toBe("challenge");
+    expect(page.results).toEqual([]);
+  });
 });
