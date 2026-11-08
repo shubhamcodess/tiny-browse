@@ -4,7 +4,7 @@
  */
 import type { Browser } from "../browser/browser.js";
 import { CdpConnection } from "../browser/cdp.js";
-import { launchChrome } from "../browser/chrome.js";
+import { killTree, launchChrome } from "../browser/chrome.js";
 import { resolveBrowser } from "../browser/discover.js";
 import type { Config } from "../config.js";
 import { log } from "../util/log.js";
@@ -48,7 +48,7 @@ export async function showChallenge(browser: Browser, config: Config, url: strin
     if (child.exitCode === null) {
       await new Promise<void>((resolve) => {
         const t = setTimeout(() => {
-          child.kill("SIGKILL");
+          killTree(child);
           resolve();
         }, 5000);
         child.once("exit", () => {

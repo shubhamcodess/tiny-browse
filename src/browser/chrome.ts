@@ -54,7 +54,9 @@ export function chromeArgs(opts: LaunchOptions): string[] {
 export function launchChrome(opts: LaunchOptions): Promise<Launched> {
   mkdirSync(opts.profileDir, { recursive: true });
   const timeoutMs = opts.timeoutMs ?? 20_000;
-  const child = spawn(opts.executable, chromeArgs(opts), { stdio: ["ignore", "ignore", "pipe"] });
+  // Own process group (not on Windows): Chrome and all its helper processes
+  // can then be killed together, so none outlives tiny-browse.
+  const child = spawn(opts.executable, chromeArgs(opts), { stdio: ["ignore", "ignore", "pipe"], detached: process.platform !== "win32" });
 
   return new Promise((resolve, reject) => {
     const tail: string[] = [];
@@ -66,7 +68,7 @@ export function launchChrome(opts: LaunchOptions): Promise<Launched> {
       done = true;
       clearTimeout(timer);
       if (err) {
-        child.kill("SIGKILL");
+        killTree(child);
         reject(err);
       } else {
         // Keep draining stderr so Chrome never blocks on a full pipe.
@@ -138,4 +140,17 @@ export async function resolveCdpUrl(url: string): Promise<string> {
   const info = (await res.json()) as { webSocketDebuggerUrl?: string };
   if (!info.webSocketDebuggerUrl) throw new LaunchError(`${base}/json/version did not return a WebSocket address`);
   return info.webSocketDebuggerUrl;
+}
+
+/** Kill Chrome and every helper process it started (its process group). */
+export function killTree(child: ChildProcess): void {
+  if (process.platform !== "win32" && child.pid) {
+    try {
+      process.kill(-child.pid, "SIGKILL");
+      return;
+    } catch {
+      // group already gone: fall through to the single process
+    }
+  }
+  child.kill("SIGKILL");
 }

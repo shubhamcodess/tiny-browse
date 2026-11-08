@@ -6,7 +6,7 @@
 import type { Config } from "../config.js";
 import { log } from "../util/log.js";
 import { CdpConnection } from "./cdp.js";
-import { findRunningOnProfile, launchChrome } from "./chrome.js";
+import { findRunningOnProfile, killTree, launchChrome } from "./chrome.js";
 import { resolveBrowser } from "./discover.js";
 
 export interface LoginOptions {
@@ -121,7 +121,7 @@ export async function login(config: Config, opts: LoginOptions): Promise<LoginRe
   if (child.exitCode === null) {
     await new Promise<void>((resolve) => {
       const t = setTimeout(() => {
-        child.kill("SIGKILL");
+        killTree(child);
         resolve();
       }, 5000);
       child.once("exit", () => {

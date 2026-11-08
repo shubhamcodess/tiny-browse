@@ -10,7 +10,7 @@ import type { ChildProcess } from "node:child_process";
 import type { Config } from "../config.js";
 import { log } from "../util/log.js";
 import { CdpConnection } from "./cdp.js";
-import { findRunningOnProfile, launchChrome, resolveCdpUrl } from "./chrome.js";
+import { findRunningOnProfile, killTree, launchChrome, resolveCdpUrl } from "./chrome.js";
 import { BrowserNotFoundError, resolveBrowser } from "./discover.js";
 import { Page } from "./page.js";
 
@@ -323,7 +323,7 @@ function killOnExit(child: ChildProcess): void {
 }
 
 function killAll(): void {
-  for (const c of children) c.kill("SIGKILL");
+  for (const c of children) killTree(c);
 }
 
 function onSignal(sig: NodeJS.Signals): void {
@@ -337,7 +337,7 @@ function waitForExit(child: ChildProcess, ms: number): Promise<void> {
   if (child.exitCode !== null || child.signalCode !== null) return Promise.resolve();
   return new Promise((resolve) => {
     const timer = setTimeout(() => {
-      child.kill("SIGKILL");
+      killTree(child);
       resolve();
     }, ms);
     child.once("exit", () => {
@@ -346,3 +346,4 @@ function waitForExit(child: ChildProcess, ms: number): Promise<void> {
     });
   });
 }
+

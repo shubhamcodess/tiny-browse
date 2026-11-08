@@ -64,6 +64,15 @@ function chromeOn(dir: string): number {
   }
 }
 
+/** Wait up to 10 s for every Chrome process on `dir` to exit; returns how many remain. */
+async function chromeGone(dir: string): Promise<number> {
+  for (let i = 0; i < 50; i++) {
+    if (chromeOn(dir) === 0) return 0;
+    await new Promise((res) => setTimeout(res, 200));
+  }
+  return chromeOn(dir);
+}
+
 const tmp = () => mkdtempSync(join(tmpdir(), "tiny-browse-life-"));
 
 describe.skipIf(!built)("library lifecycle (built package, separate process)", () => {
@@ -102,8 +111,7 @@ describe.skipIf(!built)("library lifecycle (built package, separate process)", (
     expect(r.code).toBe(0);
     expect(r.stdout).toBe("Understanding Backpressure in Streams");
     expect(r.stderr).toBe("");
-    await new Promise((res) => setTimeout(res, 300));
-    expect(chromeOn(cache)).toBe(0);
+    expect(await chromeGone(cache)).toBe(0);
   }, 60_000);
 
   it.skipIf(!hasBrowser)("killing the caller mid-call takes Chrome down with it", async () => {
@@ -116,8 +124,7 @@ describe.skipIf(!built)("library lifecycle (built package, separate process)", (
       { cacheDir: cache, killAfter: (out) => out.includes("warm") },
     );
     expect(r.signal).toBe("SIGTERM");
-    await new Promise((res) => setTimeout(res, 500));
-    expect(chromeOn(cache)).toBe(0);
+    expect(await chromeGone(cache)).toBe(0);
   }, 60_000);
 
   it("never writes to the terminal, even with a logger at debug level", async () => {
