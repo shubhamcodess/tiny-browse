@@ -18,6 +18,36 @@ export interface LoginOptions {
 export interface LoginResult {
   consentSaved: boolean;
   signedIn: boolean;
+  /** Google showed a results page at some point. */
+  results?: boolean;
+  /** Google showed its "unusual traffic" CAPTCHA at some point. */
+  challenge?: boolean;
+  /** Google showed its consent page at some point. */
+  consent?: boolean;
+}
+
+/** What to tell the user after `login`. */
+export function loginSummary(r: LoginResult): string {
+  const lines: string[] = [];
+  if (r.results) {
+    lines.push(
+      r.challenge
+        ? "Google showed search results after the CAPTCHA: this profile can search Google now."
+        : "Google showed search results: this profile can search Google.",
+    );
+  } else if (r.challenge) {
+    lines.push(
+      "Google showed a CAPTCHA and no results were reached. Searches will fall back to DuckDuckGo/Bing " +
+        "until Google trusts this profile; run `tiny-browse login` again and solve it, or try `--sign-in`.",
+    );
+  } else {
+    lines.push("No Google results page was seen before the window was closed.");
+  }
+  if (r.consentSaved) lines.push(`Google consent${r.signedIn ? " and sign-in are" : " is"} saved in the profile.`);
+  else if (r.consent) lines.push("Google's consent page appeared but the choice was not saved; run login again and accept it.");
+  else if (r.signedIn) lines.push("Your Google sign-in is saved in the profile.");
+  // No consent page and no cookie is normal outside regions that require it.
+  return lines.join("\n");
 }
 
 const CONSENT_URL = "https://www.google.com/search?q=tiny-browse&hl=en";
@@ -57,6 +87,23 @@ export async function login(config: Config, opts: LoginOptions): Promise<LoginRe
           "(Signing in is optional: run `tiny-browse login --sign-in` if you want it.)",
   );
 
+  // Note what Google showed while the window was open.
+  const seen = { results: false, challenge: false, consent: false };
+  const track = (url: unknown) => {
+    if (typeof url !== "string") return;
+    let u: URL;
+    try {
+      u = new URL(url);
+    } catch {
+      return;
+    }
+    if (/^consent\.google\./.test(u.hostname)) seen.consent = true;
+    else if (/google\./.test(u.hostname) && /\/sorry\//.test(u.pathname)) seen.challenge = true;
+    else if (/google\./.test(u.hostname) && u.pathname === "/search") seen.results = true;
+  };
+  conn.on("Target.targetCreated", (p) => track(p.targetInfo?.url));
+  conn.on("Target.targetInfoChanged", (p) => track(p.targetInfo?.url));
+
   // Done when the last tab is closed (on macOS closing the window doesn't quit Chrome), or on Ctrl+C.
   await Promise.race([
     waitForNoPages(conn),
@@ -84,12 +131,8 @@ export async function login(config: Config, opts: LoginOptions): Promise<LoginRe
     });
   }
 
-  print(
-    result.consentSaved
-      ? `Saved: Google consent${result.signedIn ? " and sign-in" : ""} are stored in the tiny-browse profile.`
-      : "No Google consent cookie was found. Searches still work; Google may show its consent page, " +
-          "in which case tiny-browse falls back to DuckDuckGo/Bing.",
-  );
+  result = { ...result, ...seen };
+  print(loginSummary(result));
   return result;
 }
 

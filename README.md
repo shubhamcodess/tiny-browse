@@ -6,10 +6,11 @@ already installed on your computer (falling back to DuckDuckGo or Bing), reads
 the best results, and returns clean, heading-structured Markdown. No bundled
 browser, no LLM inside.
 
-> **Status: early development (milestone M1).** The MCP server, CLI, config and
-> the Chrome connection work (`tiny-browse doctor`, `tiny-browse open <url>`,
-> `tiny-browse login`). The `web_search` and `web_fetch` tools still report
-> "not implemented yet". See [docs/DESIGN.md](docs/DESIGN.md) for the plan.
+> **Status: early development (milestone M2).** `web_search` returns search
+> results (titles, URLs, snippets) from Google, falling back to DuckDuckGo and
+> Bing. Reading page contents (`web_fetch`, `read`) is not implemented yet.
+> Search engines often block automated browsers; see
+> [docs/DESIGN.md §10a](docs/DESIGN.md). Plan: [docs/DESIGN.md](docs/DESIGN.md).
 
 ## Use with an agent
 

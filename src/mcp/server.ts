@@ -1,5 +1,6 @@
 import type { Config } from "../config.js";
 import { NotImplementedError, type Engine, type EngineResult } from "../core/engine.js";
+import { SearchUnavailableError } from "../search/search.js";
 import { log } from "../util/log.js";
 import { VERSION } from "../version.js";
 import { ErrorCode, JsonRpcEndpoint, RpcError } from "./jsonrpc.js";
@@ -86,7 +87,7 @@ export function createMcpServer({ engine, config, send }: McpServerOptions): Mcp
       const result = await tool.run(args as Record<string, unknown>, { signal });
       return toolResult(result, supportsStructured(protocolVersion));
     } catch (err) {
-      if (err instanceof NotImplementedError) return toolError(err.message);
+      if (err instanceof NotImplementedError || err instanceof SearchUnavailableError) return toolError(err.message);
       // Cancelled by the client: the endpoint drops this response anyway.
       if (ctx.signal.aborted) return toolError(`${tool.name} was cancelled`);
       if (signal.aborted) {

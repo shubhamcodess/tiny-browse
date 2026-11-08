@@ -64,43 +64,46 @@ export class Page {
     const timeoutMs = opts.timeoutMs ?? 15_000;
     const wanted = opts.waitUntil === "load" ? "load" : "DOMContentLoaded";
 
+    // The document we wait for. A page may replace itself (JS or meta
+    // redirect, e.g. Google -> its CAPTCHA page) before it finishes loading;
+    // we then follow the newest main-frame document.
     let loaderId: string | undefined;
-    let status: number | undefined;
-    let mimeType: string | undefined;
-    let finalUrl = url;
-    const early: { loaderId: string; name: string }[] = [];
-    let cleanupLifecycle: () => void = () => {};
+    const responses = new Map<string, { status?: number; mimeType?: string; url?: string }>();
+    const reached = new Set<string>(); // `${loaderId}|${event}` seen for the main frame
+    let wake: () => void = () => {};
 
     // Subscribe before navigating so no event is missed.
-    const offResponse = this.conn.on(
-      "Network.responseReceived",
-      (p) => {
-        if (p.type !== "Document" || p.frameId !== this.mainFrameId) return;
-        if (loaderId && p.loaderId !== loaderId) return;
-        status = p.response?.status;
-        mimeType = p.response?.mimeType;
-        finalUrl = p.response?.url ?? finalUrl;
-      },
-      this.sessionId,
-    );
-    const lifecycle = new Promise<void>((resolve) => {
-      const off = this.conn.on(
+    const offs = [
+      this.conn.on(
+        "Network.responseReceived",
+        (p) => {
+          if (p.type !== "Document" || p.frameId !== this.mainFrameId) return;
+          responses.set(p.loaderId, { status: p.response?.status, mimeType: p.response?.mimeType, url: p.response?.url });
+        },
+        this.sessionId,
+      ),
+      this.conn.on(
         "Page.lifecycleEvent",
         (p) => {
-          if (p.frameId !== this.mainFrameId || p.name !== wanted) return;
-          if (!loaderId) {
-            early.push({ loaderId: p.loaderId, name: p.name });
-            return;
-          }
-          if (p.loaderId === loaderId) {
-            off();
-            resolve();
+          if (p.frameId !== this.mainFrameId) return;
+          reached.add(`${p.loaderId}|${p.name}`);
+          wake();
+        },
+        this.sessionId,
+      ),
+      this.conn.on(
+        "Page.frameNavigated",
+        (p) => {
+          const f = p.frame;
+          if (!f || f.parentId || f.id !== this.mainFrameId) return;
+          if (loaderId && f.loaderId && f.loaderId !== loaderId) {
+            loaderId = f.loaderId;
+            wake();
           }
         },
         this.sessionId,
-      );
-      cleanupLifecycle = off;
-    });
+      ),
+    ];
 
     try {
       const nav = await this.send<{ frameId: string; loaderId?: string; errorText?: string }>(
@@ -114,16 +117,29 @@ export class Page {
       if (!nav.loaderId) return { url, timedOut: false, ms: performance.now() - start };
       loaderId = nav.loaderId;
 
-      const already = early.some((e) => e.loaderId === loaderId);
-      let timedOut = false;
-      if (!already) {
-        timedOut = await raceTimeout(lifecycle, timeoutMs, opts.signal);
-      }
-      return { url: finalUrl, status, mimeType, timedOut, ms: performance.now() - start };
+      const done = () => reached.has(`${loaderId}|${wanted}`);
+      const waitDone = new Promise<void>((resolve) => {
+        wake = () => {
+          if (done()) resolve();
+        };
+        wake();
+      });
+      const timedOut = await raceTimeout(waitDone, timeoutMs, opts.signal);
+      const res = responses.get(loaderId) ?? responses.get(nav.loaderId) ?? {};
+      return { url: res.url ?? url, status: res.status, mimeType: res.mimeType, timedOut, ms: performance.now() - start };
     } finally {
-      offResponse();
-      cleanupLifecycle();
+      for (const off of offs) off();
     }
+  }
+
+  /** Listen to a CDP event from this tab. Returns an unsubscribe function. */
+  onEvent(method: string, listener: (params: Record<string, any>) => void): () => void {
+    return this.conn.on(method, listener, this.sessionId);
+  }
+
+  /** Send a raw CDP command to this tab. */
+  cdp<T = Record<string, any>>(method: string, params: Record<string, unknown> = {}, timeoutMs?: number): Promise<T> {
+    return this.send<T>(method, params, timeoutMs);
   }
 
   /** Run an expression in the page and return its JSON-serializable value. */

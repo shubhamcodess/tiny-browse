@@ -628,6 +628,47 @@ embedding reranker plugin, SearXNG/Brave providers.
 
 ---
 
+## 10a. Findings from building M2 (2026-11-08)
+
+Measured from one home network (Airtel, India) with Chrome 156:
+
+| Engine | Automated Chrome (headless or visible), fresh profile |
+|---|---|
+| Google | CAPTCHA ("unusual traffic") on the **first** query, headless and visible alike |
+| DuckDuckGo (html) | Bot check ("select the ducks"), also over plain HTTP |
+| Brave Search | Bot check (slider) |
+| Bing | First query fine, then **silently degraded**: unrelated results (YouTube, Facebook login) for normal queries |
+
+Consequences built into M2:
+- **Relevance check** (`off_topic` status): results that barely contain the query's
+  terms are treated as a failed engine. If every engine fails and one was only
+  off-topic, its results are returned with a visible warning instead of nothing.
+- **Client-side redirects**: Google answers 200 and then its script navigates to
+  `/sorry/`. `Page.goto` follows a main-frame document that replaces itself
+  before it finishes loading.
+- **`content-visibility: auto`**: Bing skips rendering off-screen results, so their
+  text is empty to `innerText` and the accessibility tree. The SERP script forces
+  rendering before reading.
+- **Inline titles**: column detection uses the left edge of the title's
+  enclosing block, not of the link.
+- **The user's session fixes Google.** After one `tiny-browse login` on the real
+  profile, Google served normal results (no CAPTCHA) to the same automated
+  Chrome. A fresh profile got the CAPTCHA on its first query.
+- **Opaque result links.** Google now links results as `/goto?url=<token>`; the
+  destination is not in the link. Resolution, in order: (1) the breadcrumb shown
+  under the title (host + path parts) and the title's words, matched against
+  URLs that appear anywhere in the page; (2) for the rest, following the link in
+  a background tab and capturing the first request that leaves the engine
+  (~150–400 ms, destination never loaded), only for results that will be
+  returned. The reader keeps polling up to 2.5 s because Google streams the
+  data that resolves links after first paint.
+
+We do not hide automation (no `--disable-blink-features=AutomationControlled`,
+no user-agent rewriting, no stealth scripts): that is detection evasion. The
+honest levers are the user's own session (`login --sign-in`, solving a CAPTCHA
+via `onChallenge: "show"`), polite rates, and API-based providers (SearXNG,
+Brave Search API) as fallbacks — see open questions.
+
 ## 11. Open questions
 Decided:
 - Google in Chrome is always first; DuckDuckGo and Bing are fallbacks.
@@ -639,4 +680,6 @@ Decided:
 - PDF and the web UI are v0.2.
 
 Open:
-1. **License / name check** on npm (`tiny-browse` availability).
+1. **License** (npm name `tiny-browse` is free as of 2026-11-08).
+2. **API-based fallbacks** given §10a: add SearXNG (self-hosted, free) and/or the
+   Brave Search API (key, free tier) to the provider chain?

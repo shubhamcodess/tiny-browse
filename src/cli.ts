@@ -9,6 +9,7 @@ import { discoverBrowsers, resolveBrowser } from "./browser/discover.js";
 import { login } from "./browser/login.js";
 import { ChromeEngine } from "./core/chrome-engine.js";
 import { NotImplementedError, type Engine } from "./core/engine.js";
+import { SearchUnavailableError } from "./search/search.js";
 import { serveStdio } from "./mcp/stdio.js";
 import { isHttpUrl } from "./mcp/schema.js";
 import { LOG_LEVELS, log, setLogLevel, type LogLevel } from "./util/log.js";
@@ -357,7 +358,7 @@ main(process.argv.slice(2)).then(
     if (err instanceof UsageError) {
       process.stderr.write(`tiny-browse: ${err.message}\n`);
       process.exitCode = 2;
-    } else if (err instanceof ConfigError || err instanceof NotImplementedError) {
+    } else if (err instanceof ConfigError || err instanceof NotImplementedError || err instanceof SearchUnavailableError) {
       process.stderr.write(`tiny-browse: ${err.message}\n`);
       process.exitCode = 1;
     } else {
