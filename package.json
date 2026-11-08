@@ -1,5 +1,5 @@
 {
-  "name": "tiny-browse",
+  "name": "@shubhamcodess/tiny-browse",
   "version": "0.1.0",
   "description": "Web search and page reading for AI agents and Node.js: an MCP server and a library. Uses your installed Chrome, returns clean Markdown within a token budget. Zero dependencies.",
   "author": "Shubham Prakash",

@@ -58,7 +58,7 @@ jobs:
         run: |
           set -euo pipefail
           P="$(mktemp -d)"
-          npm install -g --prefix "$P" ./tiny-browse-*.tgz
+          npm install -g --prefix "$P" ./shubhamcodess-tiny-browse-*.tgz
           "$P/bin/tiny-browse" --version
           "$P/bin/tiny-browse" --help | grep -q "tiny-browse mcp"
           "$P/bin/tiny-browse" doctor --no-chrome
@@ -66,12 +66,12 @@ jobs:
         run: |
           set -euo pipefail
           D="$(mktemp -d)"
-          cp ./tiny-browse-*.tgz "$D/"
+          cp ./shubhamcodess-tiny-browse-*.tgz "$D/"
           cd "$D"
           echo '{"name":"consumer","private":true,"type":"module"}' > package.json
-          npm install ./tiny-browse-*.tgz --no-audit --no-fund
-          node -e 'import("tiny-browse").then((m) => { for (const k of ["webSearch","webFetch","createClient","doctor","TinyBrowseError"]) if (!m[k]) throw new Error("missing export " + k); console.log("exports ok", m.VERSION); })'
-          test -f node_modules/tiny-browse/dist/index.d.ts
+          npm install ./shubhamcodess-tiny-browse-*.tgz --no-audit --no-fund
+          node -e 'import("@shubhamcodess/tiny-browse").then((m) => { for (const k of ["webSearch","webFetch","createClient","doctor","TinyBrowseError"]) if (!m[k]) throw new Error("missing export " + k); console.log("exports ok", m.VERSION); })'
+          test -f node_modules/@shubhamcodess/tiny-browse/dist/index.d.ts
 
   # Single required status check for branch protection: passes only if every job above passed.
   gate:

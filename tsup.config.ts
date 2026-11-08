@@ -17,6 +17,6 @@ const shared = {
 export default defineConfig([
   // The command-line tool / MCP server.
   { ...shared, entry: { cli: "src/cli.ts" }, clean: false, banner: { js: "#!/usr/bin/env node" } },
-  // The library: `import { webSearch } from "tiny-browse"`, with type declarations.
+  // The library: `import { webSearch } from "@shubhamcodess/tiny-browse"`, with type declarations.
   { ...shared, entry: { index: "src/index.ts" }, clean: false, dts: true },
 ]);

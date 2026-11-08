@@ -1,7 +1,7 @@
 /**
  * tiny-browse as a library.
  *
- *   import { webSearch, webFetch, createClient } from "tiny-browse";
+ *   import { webSearch, webFetch, createClient } from "@shubhamcodess/tiny-browse";
  *
  * Importing has no side effects: no files are written, no Chrome is started,
  * nothing is logged. The exported functions and types are a public API

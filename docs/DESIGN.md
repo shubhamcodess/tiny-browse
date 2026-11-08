@@ -568,7 +568,7 @@ tiny-browse login                     # visible Chrome on the tiny-browse profil
 tiny-browse doctor                    # finds browsers, tests providers + SERP health, checks cache dir
 tiny-browse config claude-code        # prints ready-to-paste MCP config for a client
 ```
-Claude Code example: `claude mcp add tiny-browse -- npx -y tiny-browse`.
+Claude Code example: `claude mcp add tiny-browse -- npx -y @shubhamcodess/tiny-browse mcp`.
 
 Config precedence: defaults ← `~/.config/tiny-browse/config.json` ←
 `./tiny-browse.config.json` ← env (`TINY_BROWSE_*`) ← CLI flags ← per-call args.

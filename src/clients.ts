@@ -13,11 +13,11 @@ export interface ClientSnippet {
   text: string;
 }
 
-const PUBLISHED: ServerCommand = { command: "npx", args: ["-y", "tiny-browse", "mcp"] };
+const PUBLISHED: ServerCommand = { command: "npx", args: ["-y", "@shubhamcodess/tiny-browse", "mcp"] };
 
 /**
  * How an agent should launch this tiny-browse. When it runs from an installed
- * package we use `npx -y tiny-browse`; from a source checkout (not on npm yet,
+ * package we use `npx -y @shubhamcodess/tiny-browse`; from a source checkout (not on npm yet,
  * or a dev build) we point at this exact file with this exact node.
  */
 export function serverCommand(scriptPath = process.argv[1], nodePath = process.execPath): ServerCommand {
@@ -28,7 +28,7 @@ export function serverCommand(scriptPath = process.argv[1], nodePath = process.e
   } catch {
     // keep the path as given
   }
-  if (real.includes(`${sep}node_modules${sep}tiny-browse${sep}`)) return PUBLISHED;
+  if (real.includes(`${sep}node_modules${sep}@shubhamcodess${sep}tiny-browse${sep}`)) return PUBLISHED;
   return { command: nodePath, args: [real, "mcp"] };
 }
 

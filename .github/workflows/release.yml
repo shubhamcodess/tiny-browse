@@ -117,7 +117,11 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           PRE=""; [ "${{ needs.plan.outputs.prerelease }}" = "true" ] && PRE="--prerelease"
-          gh release create "${{ needs.plan.outputs.tag }}" ./*.tgz \
+          # Also attach a copy with a fixed name, so the latest release installs from one URL:
+          # npm install -g https://github.com/shubhamcodess/tiny-browse/releases/latest/download/tiny-browse.tgz
+          VERSIONED="$(ls ./*.tgz)"
+          cp "$VERSIONED" tiny-browse.tgz
+          gh release create "${{ needs.plan.outputs.tag }}" "$VERSIONED" tiny-browse.tgz \
             --title "${{ needs.plan.outputs.name }} ${{ needs.plan.outputs.version }}" \
             --generate-notes --verify-tag $PRE
 
@@ -182,5 +186,5 @@ jobs:
           echo '{"name":"consumer","private":true,"type":"module"}' > package.json
           npm install "$SPEC" --no-audit --no-fund
           npx --no-install tiny-browse --version | grep -qx "${{ needs.plan.outputs.version }}"
-          node -e 'import("tiny-browse").then((m) => console.log("library ok", m.VERSION))'
+          node --input-type=module -e 'const m = await import("@shubhamcodess/tiny-browse"); console.log("library ok", m.VERSION);'
           npm audit signatures

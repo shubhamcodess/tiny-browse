@@ -52,10 +52,10 @@ afterAll(() => fake?.close());
 
 describe.skipIf(!built)("packed package", () => {
   it("ships the CLI, the library and its types, with no dependencies", () => {
-    const pkg = join(project, "node_modules/tiny-browse");
+    const pkg = join(project, "node_modules/@shubhamcodess/tiny-browse");
     expect(readdirSync(join(pkg, "dist")).sort()).toEqual(["cli.js", "index.d.ts", "index.js"]);
     expect(existsSync(join(project, "node_modules/.bin/tiny-browse"))).toBe(true);
-    expect(readdirSync(join(project, "node_modules")).filter((d) => !d.startsWith("."))).toEqual(["tiny-browse"]);
+    expect(readdirSync(join(project, "node_modules")).filter((d) => !d.startsWith("."))).toEqual(["@shubhamcodess"]);
   });
 
   it("can be imported by name and run a (mocked) webSearch", async () => {
@@ -63,11 +63,11 @@ describe.skipIf(!built)("packed package", () => {
     const script = `
       import { writeFileSync } from "node:fs";
       import { join } from "node:path";
-      const lib = await import("tiny-browse");
+      const lib = await import("@shubhamcodess/tiny-browse");
       // Stand-in for a running \`tiny-browse serve\`, announced the way the real one is.
       writeFileSync(join(${JSON.stringify(cache)}, "server.json"), JSON.stringify({ url: ${JSON.stringify(fakeUrl)}, pid: process.pid, version: "x" }));
       const r = await lib.webSearch({ query: "packed" }, { cacheDir: ${JSON.stringify(cache)}, useServer: "auto", config: {} });
-      const pkg = (await import("tiny-browse/package.json", { with: { type: "json" } })).default;
+      const pkg = (await import("@shubhamcodess/tiny-browse/package.json", { with: { type: "json" } })).default;
       console.log(JSON.stringify({ provider: r.provider, first: r.results[0], version: lib.VERSION === pkg.version, error: typeof lib.TinyBrowseError }));
     `;
     writeFileSync(join(project, "run.mjs"), script);
@@ -92,7 +92,7 @@ describe.skipIf(!built)("packed package", () => {
   it("type-checks a consumer against the shipped declarations", () => {
     writeFileSync(
       join(project, "use.ts"),
-      `import { createClient, webSearch, TinyBrowseError, type SearchResult, type WebSearchInput } from "tiny-browse";
+      `import { createClient, webSearch, TinyBrowseError, type SearchResult, type WebSearchInput } from "@shubhamcodess/tiny-browse";
        const input: WebSearchInput = { query: "x", max_results: 3, read: 1 };
        export async function go(): Promise<string[]> {
          try {

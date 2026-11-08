@@ -133,7 +133,7 @@ export async function main(argv: string[]): Promise<number> {
   }
 
   // Bare `tiny-browse`: agents launch it with piped stdio and get the MCP
-  // server (so `npx -y tiny-browse` configs keep working); a person at a
+  // server (so configs that omit `mcp` still work); a person at a
   // terminal gets help instead of a process silently waiting on stdin.
   if (!positionals.length && values.http === undefined && process.stdin.isTTY) {
     process.stdout.write(`${HELP}\n${setupGuide()}`);
