@@ -669,6 +669,26 @@ honest levers are the user's own session (`login --sign-in`, solving a CAPTCHA
 via `onChallenge: "show"`), polite rates, and API-based providers (SearXNG,
 Brave Search API) as fallbacks — see open questions.
 
+## 10b. Findings from building M3–M4 (2026-11-08)
+
+- **One extractor, two ways to get the HTML.** Instead of adding an HTML parser
+  to Node (htmlparser2) for the HTTP tier, the HTTP tier fetches the page with
+  Node's `fetch` and hands those exact bytes to a Chrome tab as the response
+  (`Fetch.fulfillRequest`), with scripts disabled and only stylesheets allowed.
+  The same in-page extractor runs with full layout, there is no second extractor
+  to keep in sync, and the package keeps zero runtime dependencies.
+- **Race results** on 10 real pages (docs, blogs, Wikipedia, GitHub, landing
+  pages): HTTP won every race with identical quality, 3–10× faster than a full
+  Chrome load (e.g. 2.8 s → 0.5 s, then 0.15 s once the site is remembered).
+- **Pages needing JavaScript** score low on the HTTP path and are taken over by
+  the Chrome load; the site is remembered (`tier-hints.json`, 7 days).
+- **Bot checks** (Stack Overflow, Merriam-Webster, Cambridge) refuse both plain
+  HTTP and automated Chrome; reported as such, never bypassed.
+- **Private-network guard** applies to every HTTP redirect hop and to every
+  document request Chrome makes.
+- Not done: HTTP/2 for the HTTP tier (Node's global `fetch` does not expose
+  `allowH2` without importing undici; connections are still kept alive).
+
 ## 11. Open questions
 Decided:
 - Google in Chrome is always first; DuckDuckGo and Bing are fallbacks.

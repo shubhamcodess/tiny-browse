@@ -51,6 +51,8 @@ export class Browser {
   /** Tabs this instance opened; ignored when deciding whether others use Chrome. */
   private readonly ownTargets = new Set<string>();
   private readonly closingTabs = new Set<Promise<void>>();
+  /** "Chrome/156.0.8078.80" once a session has been opened. */
+  product: string | undefined;
   private idleTimer: NodeJS.Timeout | undefined;
 
   constructor(
@@ -163,6 +165,7 @@ export class Browser {
     const conn = await CdpConnection.connect(wsUrl);
     const version = await conn.send<{ product: string }>("Browser.getVersion");
     const startMs = Math.round(performance.now() - start);
+    this.product = version.product;
     log.info(`${kind === "launched" ? "started" : "connected to"} ${version.product} in ${startMs} ms (${kind})`);
     this.startIdleTimer();
     return { conn, kind, child, product: version.product, executable, startMs };

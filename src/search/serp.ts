@@ -148,7 +148,9 @@ export function relevance(query: string, results: SerpResult[]): { best: number;
   const terms = queryTerms(query);
   if (!terms.length || !results.length) return { best: 1, mean: 1 };
   const shares = results.map((r) => {
-    const text = `${r.title} ${r.snippet} ${r.url}`.toLowerCase();
+    // Host and path only: every URL starts with "http", which must not count as a match.
+    const where = r.url.replace(/^https?:\/\//i, "");
+    const text = `${r.title} ${r.snippet} ${where}`.toLowerCase();
     return terms.filter((t) => text.includes(t)).length / terms.length;
   });
   return { best: Math.max(...shares), mean: shares.reduce((a, b) => a + b, 0) / shares.length };

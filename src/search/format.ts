@@ -83,6 +83,7 @@ export function docData(d: ReadDoc): Record<string, unknown> {
     remainingTokens: d.remainingTokens,
     quality: d.quality,
     ms: d.ms,
+    tier: d.tier,
     images: d.images,
     meta: d.meta,
   };

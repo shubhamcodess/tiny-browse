@@ -137,6 +137,11 @@ describe("judge and relevance", () => {
     expect(judge(signals, good, "python list comprehension")).toBe("ok");
     expect(relevance("python list comprehension", good).best).toBe(1);
   });
+
+  it("does not count the URL scheme as matching 'http'", () => {
+    const dictionary = res(["Do vs. Does: How to Use Them", "DOES Definition & Meaning", "DOES | English meaning"]);
+    expect(judge(signals, dictionary, "how does http/3 quic work")).toBe("off_topic");
+  });
 });
 
 describe("login summary", () => {

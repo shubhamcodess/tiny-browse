@@ -52,6 +52,7 @@ beforeAll(async () => {
   config.browser.profileDir = mkdtempSync(join(tmpdir(), "tiny-browse-read-"));
   config.cache.enabled = false;
   config.search.minGapMs = 0;
+  config.fetch.allowPrivateNetwork = true; // the test server is on 127.0.0.1
   engine = new ChromeEngine(config);
 });
 
@@ -91,8 +92,44 @@ describe.skipIf(!hasBrowser)("reading pages (real Chrome)", () => {
     expect(md).toContain("<!-- begin untrusted content from 127.0.0.1 -->");
   }, 60_000);
 
-  it("waits for client-rendered content", async () => {
+  it("reads a server-rendered page over plain HTTP (the fast path)", async () => {
+    const r = await engine.fetch({ urls: [`${base}/article`], maxTokens: 8000, render: "auto", returnImages: false }, { signal: signal() });
+    const doc = (r.data.documents as any[])[0];
+    expect(doc.tier).toBe("http");
+    expect(r.markdown).toContain("## How streams signal pressure"); // layout still available offline
+    expect(r.markdown).toContain("```js\nconst ok");
+    expect(r.markdown).not.toContain("cookies");
+  }, 60_000);
+
+  it("falls back to Chrome for pages that need JavaScript, and remembers the site", async () => {
+    const forced = await engine.fetch({ urls: [`${base}/spa`], maxTokens: 4000, render: "http", returnImages: false }, { signal: signal() });
+    expect(forced.markdown).not.toContain("## Installation"); // scripts don't run on the HTTP path
+
     const r = await engine.fetch({ urls: [`${base}/spa`], maxTokens: 4000, render: "auto", returnImages: false }, { signal: signal() });
+    expect((r.data.documents as any[])[0].tier).toBe("browser");
+    expect(engine.hints.get("127.0.0.1")).toBe("browser");
+    // Back to normal for the next test.
+    engine.hints.set("127.0.0.1", "http");
+  }, 60_000);
+
+  it("refuses private-network URLs unless allowed", async () => {
+    const strict = defaultConfig({});
+    strict.browser.profileDir = mkdtempSync(join(tmpdir(), "tiny-browse-read-"));
+    strict.cache.enabled = false;
+    const guarded = new ChromeEngine(strict);
+    try {
+      const r = await guarded.fetch({ urls: [`${base}/article`], maxTokens: 4000, render: "auto", returnImages: false }, { signal: signal() });
+      expect((r.data.documents as any[])[0]).toMatchObject({ ok: false });
+      expect(r.markdown).toMatch(/local or private network address/);
+      const viaBrowser = await guarded.fetch({ urls: [`${base}/article`], maxTokens: 4000, render: "browser", returnImages: false }, { signal: signal() });
+      expect(viaBrowser.markdown).toMatch(/local or private network address/);
+    } finally {
+      await guarded.close();
+    }
+  }, 60_000);
+
+  it("waits for client-rendered content", async () => {
+    const r = await engine.fetch({ urls: [`${base}/spa`], maxTokens: 4000, render: "browser", returnImages: false }, { signal: signal() });
     expect(r.markdown).toMatch(/^# Client Rendered Guide/);
     expect(r.markdown).toContain("## Installation");
     expect(r.markdown).toContain("```bash\nnpm install client-rendered-guide\n```");

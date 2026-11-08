@@ -5,7 +5,8 @@
 import type { Browser } from "../browser/browser.js";
 import type { Config } from "../config.js";
 import { estimateTokens, renderDocument, truncateToTokens, type ImageMode } from "../extract/markdown.js";
-import { readWithBrowser, type ReadResult } from "../extract/reader.js";
+import { readUrl, type ReadResult, type RenderMode } from "../extract/reader.js";
+import type { TierHints } from "../fetch/hints.js";
 import type { PageImage } from "../extract/types.js";
 import { hostOf } from "../search/urls.js";
 
@@ -27,6 +28,8 @@ export interface ReadDoc {
   remainingTokens: number;
   quality?: number;
   ms: number;
+  /** Which way of reading produced this: plain HTTP (rendered offline) or a full Chrome load. */
+  tier: "http" | "browser";
   images: PageImage[];
   meta?: Record<string, string>;
 }
@@ -36,6 +39,8 @@ export interface ReadManyOptions {
   /** Heading level for each document's title. */
   titleLevel: number;
   images: boolean;
+  render: RenderMode;
+  hints?: TierHints;
   signal: AbortSignal;
 }
 
@@ -46,11 +51,15 @@ export async function readMany(browser: Browser, config: Config, reqs: ReadReque
     while (next < reqs.length && !opts.signal.aborted) {
       const i = next++;
       const req = reqs[i]!;
-      const r = await readWithBrowser(browser, req.url, {
+      const r = await readUrl(browser, req.url, {
         timeoutMs: config.fetch.timeoutMs,
+        maxBytes: config.fetch.maxBytes,
+        allowPrivate: config.fetch.allowPrivateNetwork,
         images: opts.images,
         signal: opts.signal,
         expectedTitle: req.title,
+        render: opts.render,
+        hints: opts.hints,
       });
       results[i] = toDoc(req, r, config, opts);
     }
@@ -60,7 +69,7 @@ export async function readMany(browser: Browser, config: Config, reqs: ReadReque
 }
 
 function toDoc(req: ReadRequest, r: ReadResult, config: Config, opts: ReadManyOptions): ReadDoc {
-  const base = { url: req.url, finalUrl: r.url, ms: r.ms, images: [] as PageImage[] };
+  const base = { url: req.url, finalUrl: r.url, ms: r.ms, tier: r.tier, images: [] as PageImage[] };
   if (!r.ok) {
     return { ...base, title: req.title ?? req.url, ok: false, error: r.error, markdown: "", tokens: 0, truncated: false, remainingTokens: 0 };
   }
