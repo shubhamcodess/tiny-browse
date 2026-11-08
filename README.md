@@ -9,11 +9,9 @@ tiny-browse searches **Google in the Chrome you already have**, reads the best r
 [![Node](https://img.shields.io/badge/node-%3E%3D22-339933?style=flat-square&logo=nodedotjs&logoColor=white)](https://nodejs.org)
 [![CI](https://img.shields.io/github/actions/workflow/status/shubhamcodess/tiny-browse/ci.yml?branch=main&style=flat-square&label=CI&logo=githubactions&logoColor=white)](https://github.com/shubhamcodess/tiny-browse/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue?style=flat-square)](LICENSE)
-
-[![npm weekly downloads](https://img.shields.io/npm/dw/@shubhamcodess/tiny-browse?style=flat-square&logo=npm&label=weekly)](https://www.npmjs.com/package/@shubhamcodess/tiny-browse)
-[![npm monthly downloads](https://img.shields.io/npm/dm/@shubhamcodess/tiny-browse?style=flat-square&logo=npm&label=monthly)](https://www.npmjs.com/package/@shubhamcodess/tiny-browse)
+---
 [![npm total downloads](https://img.shields.io/npm/d18m/@shubhamcodess/tiny-browse?style=flat-square&logo=npm&label=total)](https://www.npmjs.com/package/@shubhamcodess/tiny-browse)
-
+---
 - **Any agent, any model.** MCP over stdio or HTTP, plus a JSON API. No LLM inside.
 - **Tiny on disk.** A 126 kB download with zero runtime dependencies, using your installed Chrome, Edge, Brave or Chromium instead of downloading a browser of its own.
 - **Answers, not HTML.** Main content only, with headings, code, tables and lists kept, inside a hard `max_tokens` limit.
