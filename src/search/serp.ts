@@ -201,7 +201,8 @@ export async function readSerp(
   let lastError: Error | undefined;
   for (;;) {
     try {
-      inPage = await page.evaluate<InPageOutput>(expr);
+      // Generous: on a slow or busy machine the first layout of a big results page can take seconds.
+      inPage = await page.evaluate<InPageOutput>(expr, 25_000);
       const s = inPage.signals;
       if (s.challenge || s.consent || s.noResults) break;
       // Ready when there are enough results and their destinations are known
