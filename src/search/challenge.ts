@@ -22,7 +22,7 @@ export async function showChallenge(browser: Browser, config: Config, url: strin
       await page.cdp("Page.bringToFront");
       await page.goto(url, { timeoutMs: 15_000 });
       return waitForSolved(() => page.evaluate<string>("location.href"), timeoutMs);
-    });
+    }, { kind: "profile" });
   }
 
   // The profile can be open in only one Chrome: swap the headless one for a visible one.

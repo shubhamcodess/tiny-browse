@@ -17,6 +17,7 @@ export interface HttpOptions {
   timeoutMs: number;
   maxBytes: number;
   allowPrivate: boolean;
+  allowHosts?: readonly string[];
   /** Chrome version string ("156.0.8078.80") for the User-Agent; generic if unknown. */
   chromeVersion?: string;
   signal?: AbortSignal;
@@ -46,7 +47,7 @@ export async function httpGet(url: string, opts: HttpOptions): Promise<HttpResul
   let current = url;
   for (let hop = 0; hop <= MAX_REDIRECTS; hop++) {
     // Every hop is checked: a public page may redirect to a private address.
-    await assertPublicUrl(current, opts.allowPrivate);
+    await assertPublicUrl(current, opts.allowPrivate, opts.allowHosts);
     let res: Response;
     try {
       res = await fetch(current, {

@@ -22,6 +22,8 @@ export interface McpServerOptions {
   engine: Engine;
   config: Config;
   send: (msg: unknown) => void;
+  /** Version already agreed (HTTP sessions re-create the server per request). */
+  protocolVersion?: string;
 }
 
 export interface McpServer {
@@ -35,11 +37,11 @@ type ContentBlock =
   | { type: "text"; text: string }
   | { type: "image"; data: string; mimeType: string };
 
-export function createMcpServer({ engine, config, send }: McpServerOptions): McpServer {
+export function createMcpServer({ engine, config, send, protocolVersion: agreed }: McpServerOptions): McpServer {
   const rpc = new JsonRpcEndpoint(send);
   const tools = buildTools(engine, config);
   const byName = new Map(tools.map((t) => [t.name, t]));
-  let protocolVersion: string | undefined;
+  let protocolVersion: string | undefined = agreed;
 
   rpc.method("initialize", (params) => {
     const p = asObject(params);

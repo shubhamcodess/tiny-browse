@@ -43,9 +43,20 @@ const DEFAULT_DEPS: BrowserDeps = {
   resolveExecutable: resolveBrowser,
 };
 
+/**
+ * Where a tab runs:
+ * - "profile":  the tiny-browse profile with its cookies (Google consent, an
+ *               optional sign-in). Only for the search engines.
+ * - "isolated": a separate, cookie-less browser context. Every page an agent
+ *               asks to read runs here, so a page can never be read (or act)
+ *               with the user's signed-in sessions.
+ */
+export type TabKind = "profile" | "isolated";
+
 export class Browser {
   private session: Promise<BrowserSession> | undefined;
-  private spare: Promise<Page> | undefined;
+  private readonly spares = new Map<TabKind, Promise<Page>>();
+  private isolatedContext: Promise<string> | undefined;
   private active = 0;
   private lastUsed = Date.now();
   /** Tabs this instance opened; ignored when deciding whether others use Chrome. */
@@ -71,7 +82,8 @@ export class Browser {
             if (this.session !== attempt) return;
             log.warn("lost the connection to Chrome; it will be restarted on the next request");
             this.session = undefined;
-            this.spare = undefined;
+            this.spares.clear();
+            this.isolatedContext = undefined;
             this.ownTargets.clear();
           }),
         () => {
@@ -82,20 +94,26 @@ export class Browser {
     return this.session;
   }
 
-  /** Start Chrome and prepare a spare tab, so the first request is fast. */
+  /** Start Chrome and prepare a spare tab of each kind, so the first request is fast. */
   async warm(): Promise<BrowserSession> {
     const s = await this.ensure();
-    if (!this.spare) this.spare = this.newSpare(s);
-    await this.spare.catch(() => undefined);
+    for (const kind of ["profile", "isolated"] as const) {
+      if (!this.spares.has(kind)) this.spares.set(kind, this.newSpare(s, kind));
+    }
+    await Promise.all([...this.spares.values()].map((p) => p.catch(() => undefined)));
     return s;
   }
 
-  /** Run `fn` with a fresh tab; the tab is closed afterwards. */
-  async withPage<T>(fn: (page: Page) => Promise<T>): Promise<T> {
+  /**
+   * Run `fn` with a fresh tab; the tab is closed afterwards. Tabs are
+   * cookie-less ("isolated") unless the caller needs the profile.
+   */
+  async withPage<T>(fn: (page: Page) => Promise<T>, opts: { kind?: TabKind } = {}): Promise<T> {
+    const kind = opts.kind ?? "isolated";
     this.active++;
     let page: Page | undefined;
     try {
-      page = await this.acquire();
+      page = await this.acquire(kind);
       return await fn(page);
     } finally {
       this.active--;
@@ -116,8 +134,10 @@ export class Browser {
     this.stopIdleTimer();
     const pending = this.session;
     this.session = undefined;
-    const spare = this.spare;
-    this.spare = undefined;
+    const spares = [...this.spares.values()];
+    this.spares.clear();
+    const isolated = this.isolatedContext;
+    this.isolatedContext = undefined;
     if (!pending) return;
     let s: BrowserSession;
     try {
@@ -125,8 +145,11 @@ export class Browser {
     } catch {
       return;
     }
-    await spare?.then((p) => this.closeTab(p)).catch(() => undefined);
+    await Promise.all(spares.map((sp) => sp.then((p) => this.closeTab(p)).catch(() => undefined)));
     await Promise.all(this.closingTabs);
+    // Drop the cookie-less context (and anything pages stored in it).
+    const ctx = await isolated?.catch(() => undefined);
+    if (ctx && !s.conn.closed) await s.conn.send("Target.disposeBrowserContext", { browserContextId: ctx }, { timeoutMs: 3000 }).catch(() => undefined);
     await this.release(s);
     this.ownTargets.clear();
   }
@@ -171,29 +194,44 @@ export class Browser {
     return { conn, kind, child, product: version.product, executable, startMs };
   }
 
-  private async acquire(): Promise<Page> {
+  private async acquire(kind: TabKind): Promise<Page> {
     const s = await this.ensure();
     let page: Page | undefined;
-    if (this.spare) {
-      const spare = this.spare;
-      this.spare = undefined;
+    const spare = this.spares.get(kind);
+    if (spare) {
+      this.spares.delete(kind);
       page = await spare.catch(() => undefined);
       if (page?.closed) page = undefined;
     }
-    page ??= await this.createTab(s);
+    page ??= await this.createTab(s, kind);
     // Refill in the background for the next request.
-    this.spare = this.newSpare(s);
+    this.spares.set(kind, this.newSpare(s, kind));
     return page;
   }
 
-  private async createTab(s: BrowserSession): Promise<Page> {
-    const page = await Page.create(s.conn);
+  /** The session's cookie-less browser context, created on first use. */
+  private contextFor(s: BrowserSession): Promise<string> {
+    if (!this.isolatedContext) {
+      const p = s.conn
+        .send<{ browserContextId: string }>("Target.createBrowserContext", { disposeOnDetach: true })
+        .then((r) => r.browserContextId);
+      p.catch(() => {
+        if (this.isolatedContext === p) this.isolatedContext = undefined;
+      });
+      this.isolatedContext = p;
+    }
+    return this.isolatedContext;
+  }
+
+  private async createTab(s: BrowserSession, kind: TabKind): Promise<Page> {
+    const contextId = kind === "isolated" ? await this.contextFor(s) : undefined;
+    const page = await Page.create(s.conn, contextId);
     this.ownTargets.add(page.targetId);
     return page;
   }
 
-  private newSpare(s: BrowserSession): Promise<Page> {
-    const p = this.createTab(s);
+  private newSpare(s: BrowserSession, kind: TabKind): Promise<Page> {
+    const p = this.createTab(s, kind);
     p.catch((err) => log.debug("could not prepare a spare tab", err));
     return p;
   }

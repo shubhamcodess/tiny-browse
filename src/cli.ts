@@ -10,6 +10,9 @@ import { login } from "./browser/login.js";
 import { ChromeEngine } from "./core/chrome-engine.js";
 import { NotImplementedError, type Engine } from "./core/engine.js";
 import { SearchUnavailableError } from "./search/search.js";
+import { limitsFrom, RateBudget } from "./search/budget.js";
+import { ProviderState } from "./search/state.js";
+import { serveHttp, ServeError } from "./http/server.js";
 import { serveStdio } from "./mcp/stdio.js";
 import { isHttpUrl } from "./mcp/schema.js";
 import { LOG_LEVELS, log, setLogLevel, type LogLevel } from "./util/log.js";
@@ -23,7 +26,8 @@ Usage:
   tiny-browse start               Start the MCP server on stdio (what agents launch).
                                   Run in a terminal, it also prints the agent snippet
   tiny-browse                     Same as start
-  tiny-browse serve [--http PORT] Same; --http (Streamable HTTP + REST) comes later
+  tiny-browse serve --http PORT   MCP over HTTP at /mcp plus a JSON API (/search, /fetch)
+                                  [--host 127.0.0.1] [--token SECRET]
   tiny-browse search <query...>   Search and print Markdown (or --json)
   tiny-browse fetch <url...>      Read pages and print Markdown (or --json)
   tiny-browse login [--sign-in]   Open Chrome on the tiny-browse profile to accept
@@ -67,6 +71,8 @@ const OPTIONS = {
   cursor: { type: "string" },
   http: { type: "string" },
   "sign-in": { type: "boolean" },
+  host: { type: "string" },
+  token: { type: "string" },
   help: { type: "boolean", short: "h" },
   version: { type: "boolean", short: "v" },
 } as const;
@@ -134,10 +140,8 @@ export async function main(argv: string[]): Promise<number> {
     case "start":
     case "serve":
     case "mcp": {
-      if (values.http !== undefined) {
-        throw new NotImplementedError("--http (Streamable HTTP + REST) is not implemented yet; use stdio for now.");
-      }
       if (rest.length) throw new UsageError(`unexpected argument: ${rest[0]}`);
+      if (values.http !== undefined) return runHttp(config, values);
       if (process.stdin.isTTY) {
         // A person ran this in a terminal; agents launch it with piped stdio.
         // stderr only: stdout belongs to the MCP protocol.
@@ -263,7 +267,7 @@ async function runDoctor(config: Config, files: string[], json: boolean): Promis
     { name: "node >= 22", ok: Number(process.versions.node.split(".")[0]) >= 22 },
     discovery,
     discovery.ok === false ? { name: "chrome session", ok: null, note: "skipped" } : await browserCheck(config),
-    { name: "search providers", ok: null, note: "not implemented yet (M2)" },
+    ...budgetChecks(config),
   ];
   const report = {
     version: VERSION,
@@ -378,3 +382,53 @@ main(process.argv.slice(2)).then(
     }
   },
 );
+
+async function runHttp(config: Config, values: Values): Promise<number> {
+  const port = Number(values.http);
+  if (!Number.isInteger(port) || port < 0 || port > 65535) throw new UsageError("--http needs a port number, e.g. --http 7777");
+  const host = values.host ?? "127.0.0.1";
+  const token = values.token ?? process.env.TINY_BROWSE_TOKEN;
+  const engine = createEngine(config);
+  let server;
+  try {
+    server = await serveHttp(engine, config, { port, host, token });
+  } catch (err) {
+    await engine.close();
+    if (err instanceof ServeError) throw new UsageError(err.message);
+    throw err;
+  }
+  engine.start();
+  const addr = server.address();
+  const actual = typeof addr === "object" && addr ? addr.port : port;
+  const base = `http://${host.includes(":") ? `[${host}]` : host}:${actual}`;
+  process.stderr.write(
+    `tiny-browse ${VERSION} listening on ${base}\n` +
+      `  MCP (Streamable HTTP): ${base}/mcp\n` +
+      `  JSON API:              POST ${base}/search, POST ${base}/fetch, GET ${base}/health\n\n` +
+      `Claude Code: claude mcp add --transport http tiny-browse ${base}/mcp${token ? ` --header "Authorization: Bearer <token>"` : ""}\n` +
+      "Press Ctrl+C to stop.\n",
+  );
+  await new Promise<void>((resolve) => {
+    process.once("SIGINT", resolve);
+    process.once("SIGTERM", resolve);
+  });
+  await new Promise<void>((resolve) => server.close(() => resolve()));
+  await engine.close();
+  return 0;
+}
+
+function budgetChecks(config: Config): Check[] {
+  const dir = config.cache.enabled ? config.cache.dir : undefined;
+  const budget = new RateBudget(dir, limitsFrom(config.search.limits));
+  const state = new ProviderState(dir);
+  return config.search.providers.map((p) => {
+    const u = budget.usage(p);
+    const lim = limitsFrom(config.search.limits)[p];
+    const cooling = state.coolingDown(p);
+    const parts = [`used ${u.minute}/${lim.perMinute} per min, ${u.hour}/${lim.perHour} per hour, ${u.day}/${lim.perDay} per day`];
+    if (cooling) parts.push(`paused ${Math.ceil((cooling.until - Date.now()) / 60_000)} min after ${cooling.reason}`);
+    if (u.strikes) parts.push(`${u.strikes} CAPTCHA(s) in a row`);
+    // Information, not a failure: a paused engine just means searches use the next one.
+    return { name: `search: ${p}`, ok: null, note: parts.join("; ") };
+  });
+}

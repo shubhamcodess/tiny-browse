@@ -11,6 +11,7 @@ import { readUrl, type ReadResult, type RenderMode } from "../extract/reader.js"
 import type { PageImage } from "../extract/types.js";
 import type { TierHints } from "../fetch/hints.js";
 import { hostOf } from "../search/urls.js";
+import { DiskCache } from "../util/disk-cache.js";
 import { encodeCursor } from "./cursor.js";
 
 export interface ReadRequest {
@@ -58,20 +59,33 @@ export interface ReadManyOptions {
   signal: AbortSignal;
 }
 
-/** Recently read pages, so cursors and repeated reads don't fetch again. */
+/**
+ * Recently read pages, so cursors and repeated reads don't fetch again: a
+ * small in-memory LRU in front of the shared disk cache (when enabled).
+ */
 export class PageCache {
   private readonly map = new Map<string, { at: number; r: ReadResult }>();
+  private readonly disk: DiskCache<ReadResult>;
   constructor(
-    private readonly ttlMs = 10 * 60_000,
+    dir?: string,
+    private readonly ttlMs = 60 * 60_000,
     private readonly max = 64,
-  ) {}
+  ) {
+    this.disk = new DiskCache<ReadResult>(dir, ttlMs, 300);
+  }
   get(key: string): ReadResult | undefined {
     const hit = this.map.get(key);
-    if (!hit || Date.now() - hit.at > this.ttlMs) return undefined;
-    return hit.r;
+    if (hit && Date.now() - hit.at <= this.ttlMs) return hit.r;
+    const fromDisk = this.disk.get(key);
+    if (fromDisk) this.remember(key, fromDisk);
+    return fromDisk;
   }
   set(key: string, r: ReadResult): void {
     if (!r.ok) return;
+    this.remember(key, r);
+    this.disk.set(key, r);
+  }
+  private remember(key: string, r: ReadResult): void {
     this.map.delete(key);
     this.map.set(key, { at: Date.now(), r });
     while (this.map.size > this.max) this.map.delete(this.map.keys().next().value!);
@@ -93,6 +107,7 @@ export async function readMany(browser: Browser, config: Config, reqs: ReadReque
           timeoutMs: config.fetch.timeoutMs,
           maxBytes: config.fetch.maxBytes,
           allowPrivate: config.fetch.allowPrivateNetwork,
+          allowHosts: config.fetch.allowHosts,
           images: opts.images,
           signal: opts.signal,
           expectedTitle: req.title,

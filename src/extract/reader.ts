@@ -27,6 +27,8 @@ export interface ReadOptions {
   timeoutMs: number;
   maxBytes: number;
   allowPrivate: boolean;
+  /** Private hosts allowed anyway ("host" or "host:port"). */
+  allowHosts?: string[];
   /** Let images load (needed when the caller wants them). */
   images: boolean;
   signal?: AbortSignal;
@@ -80,7 +82,7 @@ export async function readUrl(
 ): Promise<ReadResult> {
   const start = performance.now();
   try {
-    await assertPublicUrl(url, opts.allowPrivate);
+    await assertPublicUrl(url, opts.allowPrivate, opts.allowHosts);
   } catch (err) {
     return failure(url, "http", (err as Error).message, start, false);
   }
@@ -156,6 +158,7 @@ export async function readWithHttp(browser: Browser, url: string, opts: ReadOpti
       timeoutMs: opts.timeoutMs,
       maxBytes: opts.maxBytes,
       allowPrivate: opts.allowPrivate,
+      allowHosts: opts.allowHosts,
       chromeVersion: browser.product?.split("/")[1],
       signal: opts.signal,
     });
@@ -206,7 +209,11 @@ async function renderOffline(browser: Browser, url: string, html: string, opts: 
           })
           .catch(() => undefined);
       } else if (e.resourceType === "Stylesheet") {
-        page.cdp("Fetch.continueRequest", id).catch(() => undefined);
+        // Stylesheets come from the page's HTML, so they are guarded like any request.
+        assertPublicUrl(e.request.url, opts.allowPrivate, opts.allowHosts).then(
+          () => page.cdp("Fetch.continueRequest", id).catch(() => undefined),
+          () => page.cdp("Fetch.failRequest", { ...id, errorReason: "AccessDenied" }).catch(() => undefined),
+        );
       } else {
         page.cdp("Fetch.failRequest", { ...id, errorReason: "BlockedByClient" }).catch(() => undefined);
       }
@@ -223,7 +230,7 @@ async function renderOffline(browser: Browser, url: string, html: string, opts: 
 export async function readWithBrowser(browser: Browser, url: string, opts: ReadOptions): Promise<ReadResult> {
   const start = performance.now();
   try {
-    await assertPublicUrl(url, opts.allowPrivate);
+    await assertPublicUrl(url, opts.allowPrivate, opts.allowHosts);
     return await browser.withPage(async (page) => {
       await interceptRequests(page, opts);
       const nav = await page.goto(url, { waitUntil: "load", timeoutMs: opts.timeoutMs, signal: opts.signal });
@@ -262,32 +269,46 @@ export async function readWithBrowser(browser: Browser, url: string, opts: ReadO
 }
 
 /**
- * Ask for Markdown first on the page request (some sites serve it to agents),
- * refuse redirects into private networks, and skip heavy resources.
+ * Every request the page makes passes through here, not just the page itself:
+ * scripts, stylesheets, iframes, XHR/fetch, beacons. Requests to local or
+ * private addresses are refused, so a public page cannot use this browser to
+ * reach your router or dev servers. Heavy resources are skipped, and the page
+ * request asks for Markdown first (some sites serve it to agents).
  */
 async function interceptRequests(page: Page, opts: ReadOptions): Promise<void> {
-  const blocked = opts.images ? ["Media", "Font"] : ["Image", "Media", "Font"];
-  const patterns = [
-    { urlPattern: "*", resourceType: "Document", requestStage: "Request" },
-    ...blocked.map((resourceType) => ({ urlPattern: "*", resourceType, requestStage: "Request" })),
-  ];
+  const skip = new Set(opts.images ? ["Media", "Font"] : ["Image", "Media", "Font"]);
+  let mainServed = false;
   page.onEvent("Fetch.requestPaused", (e) => {
     const id = { requestId: e.requestId };
-    if (e.resourceType !== "Document") {
+    const url: string = e.request.url;
+    if (skip.has(e.resourceType)) {
       page.cdp("Fetch.failRequest", { ...id, errorReason: "BlockedByClient" }).catch(() => undefined);
       return;
     }
-    assertPublicUrl(e.request.url, opts.allowPrivate).then(
+    if (/^(data|blob):/i.test(url)) {
+      page.cdp("Fetch.continueRequest", id).catch(() => undefined);
+      return;
+    }
+    assertPublicUrl(url, opts.allowPrivate, opts.allowHosts).then(
       () => {
-        const headers = Object.entries({ ...e.request.headers, Accept: "text/markdown;q=1.0, text/html;q=0.9, */*;q=0.8" }).map(
-          ([name, value]) => ({ name, value: String(value) }),
-        );
-        page.cdp("Fetch.continueRequest", { ...id, headers }).catch(() => undefined);
+        if (e.resourceType === "Document" && !mainServed) {
+          mainServed = true;
+          const headers = Object.entries({ ...e.request.headers, Accept: "text/markdown;q=1.0, text/html;q=0.9, */*;q=0.8" }).map(
+            ([name, value]) => ({ name, value: String(value) }),
+          );
+          page.cdp("Fetch.continueRequest", { ...id, headers }).catch(() => undefined);
+          return;
+        }
+        page.cdp("Fetch.continueRequest", id).catch(() => undefined);
       },
       () => page.cdp("Fetch.failRequest", { ...id, errorReason: "AccessDenied" }).catch(() => undefined),
     );
   });
-  await page.cdp("Fetch.enable", { patterns });
+  // WebSockets can't be intercepted this way; reading a page never needs one.
+  await page.cdp("Page.addScriptToEvaluateOnNewDocument", {
+    source: "Object.defineProperty(window, 'WebSocket', { value: undefined, configurable: false }); Object.defineProperty(window, 'WebTransport', { value: undefined, configurable: false });",
+  });
+  await page.cdp("Fetch.enable", { patterns: [{ urlPattern: "*", requestStage: "Request" }] });
 }
 
 /** Wait until the DOM stops changing (SPAs render after load), at most ~2.5 s. */

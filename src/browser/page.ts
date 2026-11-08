@@ -34,8 +34,12 @@ export class Page {
     private mainFrameId: string,
   ) {}
 
-  static async create(conn: CdpConnection): Promise<Page> {
-    const { targetId } = await conn.send<{ targetId: string }>("Target.createTarget", { url: "about:blank" });
+  /** Open a tab; with `browserContextId` it lives in that (e.g. cookie-less) context. */
+  static async create(conn: CdpConnection, browserContextId?: string): Promise<Page> {
+    const { targetId } = await conn.send<{ targetId: string }>("Target.createTarget", {
+      url: "about:blank",
+      ...(browserContextId ? { browserContextId } : {}),
+    });
     const { sessionId } = await conn.send<{ sessionId: string }>("Target.attachToTarget", { targetId, flatten: true });
     const opts = { sessionId };
     await Promise.all([

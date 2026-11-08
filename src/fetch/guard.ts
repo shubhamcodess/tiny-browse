@@ -45,7 +45,7 @@ const cache = new Map<string, { at: number; blocked: boolean }>();
  * Throws BlockedAddressError if `url` is not http(s) or its host resolves to a
  * private address. Results are cached for a minute.
  */
-export async function assertPublicUrl(url: string, allowPrivate: boolean): Promise<void> {
+export async function assertPublicUrl(url: string, allowPrivate: boolean, allowHosts: readonly string[] = []): Promise<void> {
   let u: URL;
   try {
     u = new URL(url);
@@ -54,6 +54,8 @@ export async function assertPublicUrl(url: string, allowPrivate: boolean): Promi
   }
   if (u.protocol !== "http:" && u.protocol !== "https:") throw new BlockedAddressError(`only http(s) URLs can be read: ${url}`);
   if (allowPrivate) return;
+  // Hosts the user explicitly allowed ("intranet.example" or "127.0.0.1:8080").
+  if (allowHosts.length && (allowHosts.includes(u.hostname) || allowHosts.includes(u.host))) return;
 
   const host = u.hostname.replace(/^\[|\]$/g, "").toLowerCase();
   if (host === "localhost" || host.endsWith(".localhost") || host.endsWith(".local") || host.endsWith(".internal")) {

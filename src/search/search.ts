@@ -3,7 +3,9 @@
  * skip providers cooling down after a CAPTCHA, keep a polite gap between
  * queries to the same engine, cache recent results, and report every attempt.
  */
+import { join } from "node:path";
 import type { Browser } from "../browser/browser.js";
+import { DiskCache } from "../util/disk-cache.js";
 import type { Config, SearchProviderName } from "../config.js";
 import { log } from "../util/log.js";
 import { showChallenge } from "./challenge.js";
@@ -50,6 +52,8 @@ export type ReadPage = (
 
 export class SearchService {
   private readonly cache = new Map<string, { at: number; outcome: SearchOutcome }>();
+  // Shared with other tiny-browse processes: a repeated query never costs an engine request.
+  private readonly disk: DiskCache<SearchOutcome>;
   private readonly queues = new Map<SearchProviderName, Promise<void>>();
   private readonly readPage: ReadPage;
   readonly budget: RateBudget;
@@ -63,12 +67,15 @@ export class SearchService {
   ) {
     this.readPage = readPage ?? ((p, q, url, o, s) => this.readWithBrowser(p, q, url, o, s));
     this.budget = budget ?? new RateBudget(config.cache.enabled ? config.cache.dir : undefined, limitsFrom(config.search.limits));
+    this.disk = new DiskCache<SearchOutcome>(config.cache.enabled ? join(config.cache.dir, "serp") : undefined, config.cache.serpTtlMs, 300);
   }
 
   async search(query: string, opts: SearchOptions, signal: AbortSignal): Promise<SearchOutcome> {
     const key = JSON.stringify([query.toLowerCase(), opts.site ?? "", opts.freshness, opts.maxResults]);
     const hit = this.cache.get(key);
     if (hit && Date.now() - hit.at < this.config.cache.serpTtlMs) return { ...hit.outcome, cached: true };
+    const shared = this.disk.get(key);
+    if (shared) return { ...shared, cached: true };
 
     const attempts: Attempt[] = [];
     let offTopic: SerpPage | undefined;
@@ -106,6 +113,7 @@ export class SearchService {
         this.budget.succeeded(name);
         const outcome = { page, attempts, cached: false };
         this.cache.set(key, { at: Date.now(), outcome });
+        this.disk.set(key, outcome);
         return outcome;
       }
       if (page.status === "challenge") {
@@ -189,7 +197,7 @@ export class SearchService {
           strategies: r.strategies,
           ms: performance.now() - start,
         };
-      });
+      }, { kind: "profile" });
     } catch (err) {
       if (signal.aborted) throw err;
       return {

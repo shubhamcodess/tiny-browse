@@ -42,7 +42,11 @@ beforeAll(async () => {
       return html("article.html");
     }
     if (url === "/paper.pdf") return res.writeHead(200, { "content-type": "application/pdf" }).end("%PDF-1.4");
-    if (url.match(/\/(diagram\.png|pixel\.gif)$/)) return res.writeHead(404).end();
+    if (url === "/diagram.png") {
+      const png = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==", "base64");
+      return res.writeHead(200, { "content-type": "application/octet-stream" }).end(png); // vague type: sniffed
+    }
+    if (url === "/pixel.gif") return res.writeHead(404).end();
     res.writeHead(404, { "content-type": "text/html" }).end("<title>Not Found</title><h1>Not Found</h1>");
   });
   await new Promise<void>((r) => server.listen(0, "127.0.0.1", r));
@@ -177,6 +181,14 @@ describe.skipIf(!hasBrowser)("reading pages (real Chrome)", () => {
     expect(next.markdown).toContain("…");
     expect(next.markdown).toContain("Checklist");
     expect(next.markdown).not.toContain("Backpressure** is what happens"); // already shown
+  }, 60_000);
+
+  it("returns image bytes for vision models when asked", async () => {
+    const r = await engine.fetch({ urls: [`${base}/article`], maxTokens: 8000, render: "auto", returnImages: true }, { signal: signal() });
+    expect(r.markdown).toContain(`![Producer and consumer with a bounded buffer](${base}/diagram.png)`);
+    expect(r.images).toHaveLength(1); // the 1x1 tracking pixel is not a content image
+    expect(r.images![0]).toMatchObject({ id: "img1", mimeType: "image/png" });
+    expect((r.data.images as any[])[0]).toMatchObject({ src: `${base}/diagram.png`, alt: "Producer and consumer with a bounded buffer" });
   }, 60_000);
 
   it("returns the sections most relevant to a focus question", async () => {

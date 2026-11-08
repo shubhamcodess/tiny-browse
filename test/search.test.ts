@@ -176,6 +176,7 @@ describe("SearchService fallback chain", () => {
 
   function setup(script: Partial<Record<ProviderDef["name"], SerpStatus[]>>, limits = NO_LIMITS) {
     const config = defaultConfig({});
+    config.cache.enabled = false; // never touch the real cache dir from tests
     const calls: string[] = [];
     const readPage: ReadPage = async (def) => {
       calls.push(def.name);

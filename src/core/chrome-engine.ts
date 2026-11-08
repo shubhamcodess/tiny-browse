@@ -1,3 +1,4 @@
+import { join } from "node:path";
 import { Browser } from "../browser/browser.js";
 import type { Config } from "../config.js";
 import { truncateToTokens } from "../extract/markdown.js";
@@ -10,7 +11,8 @@ import { log } from "../util/log.js";
 import { countTokens } from "../util/tokens.js";
 import { decodeCursor } from "./cursor.js";
 import { ToolInputError, type CallContext, type Engine, type EngineResult, type FetchRequest, type SearchRequest } from "./engine.js";
-import { docSection, PageCache, readMany, type ReadRequest } from "./read.js";
+import { docSection, PageCache, readMany, type ReadDoc, type ReadRequest } from "./read.js";
+import { fetchImages, type FetchedImage } from "../fetch/images.js";
 
 /** Smallest share of the budget worth giving one page. */
 const MIN_TOKENS_PER_DOC = 300;
@@ -21,12 +23,13 @@ export class ChromeEngine implements Engine {
   readonly browser: Browser;
   readonly searcher: SearchService;
   readonly hints: TierHints;
-  readonly pages = new PageCache();
+  readonly pages: PageCache;
 
   constructor(private readonly config: Config) {
     this.browser = new Browser(config.browser);
     const dir = config.cache.enabled ? config.cache.dir : undefined;
     this.hints = new TierHints(dir);
+    this.pages = new PageCache(dir ? join(dir, "pages") : undefined, config.cache.pageTtlMs);
     this.searcher = new SearchService(this.browser, config, new ProviderState(dir));
   }
 
@@ -68,9 +71,11 @@ export class ChromeEngine implements Engine {
       }
     }
 
+    const images = req.returnImages ? await this.images([...docs.values()], ctx.signal) : [];
     return {
       markdown: capTokens(searchMarkdown(req.query, outcome, docs), req.maxTokens),
-      data: searchData(req.query, outcome, docs),
+      data: { ...searchData(req.query, outcome, docs), images: images.map(describeImage) },
+      images,
     };
   }
 
@@ -95,10 +100,20 @@ export class ChromeEngine implements Engine {
       signal: ctx.signal,
     });
     const sections = docs.map((d) => docSection(d, `# ${d.ok ? d.title : d.url}`));
+    const images = req.returnImages ? await this.images(docs, ctx.signal) : [];
     return {
       markdown: capTokens(sections.join("\n---\n\n"), req.maxTokens),
-      data: { documents: docs.map(docData) },
+      data: { documents: docs.map(docData), images: images.map(describeImage) },
+      images,
     };
+  }
+
+  /** Image bytes for vision models, from the pages read, within the image caps. */
+  private images(docs: ReadDoc[], signal: AbortSignal): Promise<FetchedImage[]> {
+    return fetchImages(
+      docs.filter((d) => d.ok).flatMap((d) => d.images),
+      { max: this.config.images.max, maxBytes: this.config.images.maxBytes, allowPrivate: this.config.fetch.allowPrivateNetwork, allowHosts: this.config.fetch.allowHosts, timeoutMs: 5000, signal },
+    );
   }
 
   close(): Promise<void> {
@@ -118,4 +133,8 @@ export function capTokens(markdown: string, max: number): string {
   const closed = text.match(/<!-- end untrusted content -->/g)?.length ?? 0;
   if (opened > closed) text += "\n<!-- end untrusted content -->";
   return text + note;
+}
+
+function describeImage(i: FetchedImage): Record<string, unknown> {
+  return { id: i.id, src: i.src, alt: i.alt, mimeType: i.mimeType, bytes: Math.round((i.data.length * 3) / 4) };
 }

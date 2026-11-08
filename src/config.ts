@@ -37,6 +37,8 @@ export interface Config {
     maxBytes: number;
     concurrency: number;
     allowPrivateNetwork: boolean;
+    /** Private hosts to allow anyway, as "host" or "host:port". */
+    allowHosts: string[];
   };
   output: {
     maxTokens: number;
@@ -89,6 +91,7 @@ export function defaultConfig(env: Record<string, string | undefined> = process.
       maxBytes: 5 * 1024 * 1024,
       concurrency: 4,
       allowPrivateNetwork: false,
+      allowHosts: [],
     },
     output: { maxTokens: 6000, links: "reference" },
     images: { mode: "off", max: 4, maxBytes: 1024 * 1024 },
