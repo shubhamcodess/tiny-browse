@@ -8,6 +8,7 @@ import type { Config, SearchProviderName } from "../config.js";
 import { log } from "../util/log.js";
 import { showChallenge } from "./challenge.js";
 import { PROVIDERS, type ProviderDef } from "./providers.js";
+import { limitsFrom, RateBudget } from "./budget.js";
 import { redirectResolver } from "./redirects.js";
 import { readSerp } from "./serp.js";
 import type { ProviderState } from "./state.js";
@@ -36,7 +37,7 @@ export class SearchUnavailableError extends Error {
   }
 }
 
-const CHALLENGE_COOLDOWN_MS = 10 * 60_000;
+const CONSENT_COOLDOWN_MS = 10 * 60_000;
 const UNHEALTHY_COOLDOWN_MS = 2 * 60_000;
 
 export type ReadPage = (
@@ -50,16 +51,18 @@ export type ReadPage = (
 export class SearchService {
   private readonly cache = new Map<string, { at: number; outcome: SearchOutcome }>();
   private readonly queues = new Map<SearchProviderName, Promise<void>>();
-  private readonly lastQuery = new Map<SearchProviderName, number>();
   private readonly readPage: ReadPage;
+  readonly budget: RateBudget;
 
   constructor(
     private readonly browser: Browser,
     private readonly config: Config,
     private readonly state: ProviderState,
     readPage?: ReadPage,
+    budget?: RateBudget,
   ) {
     this.readPage = readPage ?? ((p, q, url, o, s) => this.readWithBrowser(p, q, url, o, s));
+    this.budget = budget ?? new RateBudget(config.cache.enabled ? config.cache.dir : undefined, limitsFrom(config.search.limits));
   }
 
   async search(query: string, opts: SearchOptions, signal: AbortSignal): Promise<SearchOutcome> {
@@ -80,25 +83,36 @@ export class SearchService {
 
       const def = PROVIDERS[name];
       let page = await this.attempt(def, query, opts, signal);
+      if ("skipped" in page) {
+        attempts.push({ provider: name, status: "skipped", ms: 0, note: page.skipped });
+        continue;
+      }
 
       if (page.status === "challenge" && this.config.browser.onChallenge === "show" && page.signals?.url) {
         const solved = await showChallenge(this.browser, this.config, page.signals.url).catch((err: Error) => {
           log.warn(`could not show the CAPTCHA: ${err.message}`);
           return false;
         });
-        if (solved) page = await this.attempt(def, query, opts, signal);
+        if (solved) {
+          const retry = await this.attempt(def, query, opts, signal);
+          if (!("skipped" in retry)) page = retry;
+        }
       }
 
       attempts.push({ provider: name, status: page.status, ms: Math.round(page.ms), note: noteFor(page) });
 
       if (page.status === "ok" || page.status === "no_results") {
         this.state.clear(name);
+        this.budget.succeeded(name);
         const outcome = { page, attempts, cached: false };
         this.cache.set(key, { at: Date.now(), outcome });
         return outcome;
       }
-      if (page.status === "challenge") this.state.coolDown(name, CHALLENGE_COOLDOWN_MS, "CAPTCHA");
-      else if (page.status === "consent") this.state.coolDown(name, CHALLENGE_COOLDOWN_MS, "consent page");
+      if (page.status === "challenge") {
+        // Each CAPTCHA in a row pauses the engine longer: 15 min, 1 h, 4 h, 24 h.
+        const pause = this.budget.strike(name);
+        this.state.coolDown(name, pause, "CAPTCHA");
+      } else if (page.status === "consent") this.state.coolDown(name, CONSENT_COOLDOWN_MS, "consent page");
       else if (page.status === "unhealthy") {
         log.warn(`serp_drift: ${def.label} results page not recognised`, page.strategies);
         this.state.coolDown(name, UNHEALTHY_COOLDOWN_MS, "results page not recognised");
@@ -119,28 +133,32 @@ export class SearchService {
     throw new SearchUnavailableError(attempts);
   }
 
-  private async attempt(def: ProviderDef, query: string, opts: SearchOptions, signal: AbortSignal): Promise<SerpPage> {
+  /** One request at a time per engine, and only within its rate budget. */
+  private async attempt(
+    def: ProviderDef,
+    query: string,
+    opts: SearchOptions,
+    signal: AbortSignal,
+  ): Promise<SerpPage | { skipped: string }> {
     const release = await this.slot(def.name);
     try {
+      const booking = this.budget.reserve(def.name);
+      if (!booking.ok) return { skipped: booking.reason };
+      if (booking.waitMs > 0) await sleep(booking.waitMs, signal);
       return await this.readPage(def, query, def.buildUrl(query, opts), opts, signal);
     } finally {
       release();
     }
   }
 
-  /** One query at a time per engine, at least `minGapMs` apart. */
+  /** Serialize requests to one engine within this process. */
   private async slot(name: SearchProviderName): Promise<() => void> {
     const prev = this.queues.get(name) ?? Promise.resolve();
     let release!: () => void;
     const mine = new Promise<void>((r) => (release = r));
     this.queues.set(name, prev.then(() => mine));
     await prev;
-    const wait = (this.lastQuery.get(name) ?? 0) + this.config.search.minGapMs - Date.now();
-    if (wait > 0) await new Promise((r) => setTimeout(r, wait));
-    return () => {
-      this.lastQuery.set(name, Date.now());
-      release();
-    };
+    return release;
   }
 
   private async readWithBrowser(
@@ -157,7 +175,10 @@ export class SearchService {
         const r = await readSerp(page, def, {
           signal,
           query,
-          resolve: redirectResolver(this.browser, def.internalHost),
+          resolve: redirectResolver(this.browser, def.internalHost, {
+            // Following result links is a request to the engine: it counts against its budget.
+            allow: (n) => def.name !== "google" || this.budget.reserve("google-redirect", n, 0).ok,
+          }),
           limit: opts.maxResults,
         });
         return {
@@ -204,4 +225,18 @@ export function describeAttempts(attempts: Attempt[]): string {
   return attempts
     .map((a) => `${PROVIDERS[a.provider].label}: ${a.status === "skipped" ? `skipped (${a.note})` : (a.note ?? a.status)}`)
     .join("; ");
+}
+
+function sleep(ms: number, signal: AbortSignal): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const t = setTimeout(resolve, ms);
+    signal.addEventListener(
+      "abort",
+      () => {
+        clearTimeout(t);
+        reject(signal.reason);
+      },
+      { once: true },
+    );
+  });
 }

@@ -24,8 +24,11 @@ export interface Config {
   search: {
     /** Ordered chain: first is primary, rest are fallbacks. */
     providers: SearchProviderName[];
-    /** Minimum gap between Google queries. */
-    minGapMs: number;
+    /**
+     * Per-engine request budgets, overriding the strict defaults in
+     * search/budget.ts, e.g. { "google": { "perHour": 10 } }.
+     */
+    limits: Record<string, Partial<{ minGapMs: number; jitterMs: number; perMinute: number; perHour: number; perDay: number }>>;
     maxResults: number;
     read: number;
   };
@@ -77,7 +80,7 @@ export function defaultConfig(env: Record<string, string | undefined> = process.
     },
     search: {
       providers: ["google", "duckduckgo", "bing"],
-      minGapMs: 1500,
+      limits: {},
       maxResults: 5,
       read: 3,
     },

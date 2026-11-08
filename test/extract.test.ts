@@ -111,7 +111,7 @@ describe("polish", () => {
 
 describe("tokens and quality", () => {
   it("estimates tokens and truncates at block boundaries", () => {
-    expect(estimateTokens("a".repeat(380))).toBe(100);
+    expect(estimateTokens("The quick brown fox jumps over the lazy dog.")).toBeGreaterThanOrEqual(10);
     const md = ["# T", "para one ".repeat(40), "para two ".repeat(40), "para three ".repeat(40)].join("\n\n");
     const cut = truncateToTokens(md, 120);
     expect(cut.truncated).toBe(true);

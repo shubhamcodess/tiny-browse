@@ -5,6 +5,7 @@ import { PROVIDERS, type ProviderDef } from "../src/search/providers.js";
 import { SearchService, SearchUnavailableError, type ReadPage } from "../src/search/search.js";
 import { judge, mergeStrategies, queryTerms, relevance, resultsFromAxTree } from "../src/search/serp.js";
 import { ProviderState } from "../src/search/state.js";
+import { DEFAULT_LIMITS, RateBudget, type Limits } from "../src/search/budget.js";
 import type { PageSignals, SerpPage, SerpResult, SerpStatus } from "../src/search/types.js";
 import { normalizeUrl, unwrapTarget } from "../src/search/urls.js";
 import { setLogLevel } from "../src/util/log.js";
@@ -173,9 +174,8 @@ describe("SearchService fallback chain", () => {
     ms: 10,
   });
 
-  function setup(script: Partial<Record<ProviderDef["name"], SerpStatus[]>>) {
+  function setup(script: Partial<Record<ProviderDef["name"], SerpStatus[]>>, limits = NO_LIMITS) {
     const config = defaultConfig({});
-    config.search.minGapMs = 0;
     const calls: string[] = [];
     const readPage: ReadPage = async (def) => {
       calls.push(def.name);
@@ -184,9 +184,33 @@ describe("SearchService fallback chain", () => {
     };
     let now = 1_000_000;
     const state = new ProviderState(undefined, () => now);
-    const service = new SearchService({} as never, config, state, readPage);
-    return { service, calls, advance: (ms: number) => (now += ms) };
+    const budget = new RateBudget(undefined, limits, () => now, () => 0);
+    const service = new SearchService({} as never, config, state, readPage, budget);
+    return { service, calls, budget, advance: (ms: number) => (now += ms) };
   }
+
+  it("skips an engine whose rate budget is used up, without contacting it", async () => {
+    const tight = { ...NO_LIMITS, google: { minGapMs: 0, jitterMs: 0, perMinute: 1, perHour: 1, perDay: 1 } };
+    const { service, calls } = setup({}, tight);
+    await service.search("first", opts, signal);
+    const out = await service.search("second", opts, signal);
+    expect(calls).toEqual(["google", "duckduckgo"]);
+    expect(out.attempts[0]).toMatchObject({ provider: "google", status: "skipped" });
+    expect(out.attempts[0]!.note).toMatch(/rate budget: next request allowed in 24 h/);
+  });
+
+  it("backs off longer after each CAPTCHA in a row", async () => {
+    const { service, calls, advance } = setup({ google: ["challenge", "challenge"] });
+    await service.search("a", opts, signal); // strike 1: 15 min
+    advance(16 * 60_000);
+    await service.search("b", opts, signal); // strike 2: 1 h
+    advance(16 * 60_000);
+    await service.search("c", opts, signal); // still cooling
+    expect(calls.filter((c) => c === "google")).toHaveLength(2);
+    advance(45 * 60_000);
+    await service.search("d", opts, signal);
+    expect(calls.filter((c) => c === "google")).toHaveLength(3);
+  });
   const opts = { freshness: "any" as const, maxResults: 5 };
   const signal = new AbortController().signal;
 
@@ -214,7 +238,7 @@ describe("SearchService fallback chain", () => {
     await service.search("first", opts, signal);
     await service.search("second", opts, signal);
     expect(calls).toEqual(["google", "duckduckgo", "duckduckgo"]);
-    advance(11 * 60_000);
+    advance(16 * 60_000);
     await service.search("third", opts, signal);
     expect(calls.at(-1)).toBe("google");
   });
@@ -239,5 +263,51 @@ describe("SearchService fallback chain", () => {
     const err = await service.search("q", opts, signal).catch((e) => e);
     expect(err).toBeInstanceOf(SearchUnavailableError);
     expect(err.message).toMatch(/Google: CAPTCHA; DuckDuckGo: consent page/);
+  });
+});
+
+const NO_LIMITS = Object.fromEntries(
+  Object.keys(DEFAULT_LIMITS).map((k) => [k, { minGapMs: 0, jitterMs: 0, perMinute: 1e6, perHour: 1e6, perDay: 1e6 }]),
+) as Record<keyof typeof DEFAULT_LIMITS, Limits>;
+
+describe("RateBudget", () => {
+  it("keeps Google's default gap and windows", () => {
+    let now = 0;
+    const b = new RateBudget(undefined, DEFAULT_LIMITS, () => now, () => 0);
+    expect(b.reserve("google")).toEqual({ ok: true, waitMs: 0 });
+    expect(b.reserve("google")).toEqual({ ok: true, waitMs: 8000 }); // min gap
+    now = 16_000;
+    expect(b.reserve("google")).toEqual({ ok: true, waitMs: 0 });
+    now = 24_000;
+    // 4th within a minute would have to wait 36 s for the window: refused, the search falls back.
+    expect(b.reserve("google")).toMatchObject({ ok: false, reason: "rate budget: next request allowed in 36 s" });
+    now = 60_001;
+    expect(b.reserve("google")).toEqual({ ok: true, waitMs: 0 });
+  });
+
+  it("refuses rather than waits beyond the limit, and caps the day", () => {
+    let now = 0;
+    const lim = { ...DEFAULT_LIMITS, google: { minGapMs: 0, jitterMs: 0, perMinute: 100, perHour: 100, perDay: 2 } };
+    const b = new RateBudget(undefined, lim, () => now, () => 0);
+    b.reserve("google");
+    b.reserve("google");
+    const third = b.reserve("google");
+    expect(third.ok).toBe(false);
+    now += 24 * 60 * 60_000 + 1;
+    expect(b.reserve("google").ok).toBe(true);
+    expect(b.usage("google").day).toBe(1);
+  });
+
+  it("is shared through the cache dir", async () => {
+    const { mkdtempSync } = await import("node:fs");
+    const { tmpdir } = await import("node:os");
+    const { join } = await import("node:path");
+    const dir = mkdtempSync(join(tmpdir(), "tiny-browse-budget-"));
+    const a = new RateBudget(dir, DEFAULT_LIMITS, () => 0, () => 0);
+    const b = new RateBudget(dir, DEFAULT_LIMITS, () => 0, () => 0);
+    a.reserve("google");
+    expect(b.reserve("google")).toEqual({ ok: true, waitMs: 8000 });
+    expect(b.strike("google")).toBe(15 * 60_000);
+    expect(a.strike("google")).toBe(60 * 60_000);
   });
 });

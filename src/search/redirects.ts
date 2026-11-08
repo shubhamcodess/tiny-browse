@@ -12,7 +12,12 @@ export type RedirectResolver = (hrefs: string[]) => Promise<Record<string, strin
 export function redirectResolver(
   browser: Browser,
   internalHost: string,
-  opts: { timeoutMs?: number; concurrency?: number } = {},
+  opts: {
+    timeoutMs?: number;
+    concurrency?: number;
+    /** Asked before following `n` links; false = follow none (rate budget). */
+    allow?: (n: number) => boolean;
+  } = {},
 ): RedirectResolver {
   const timeoutMs = opts.timeoutMs ?? 2500;
   const concurrency = opts.concurrency ?? 2;
@@ -51,6 +56,10 @@ export function redirectResolver(
   return async (hrefs) => {
     const out: Record<string, string> = {};
     const queue = [...new Set(hrefs)];
+    if (opts.allow && !opts.allow(queue.length)) {
+      log.debug(`not following ${queue.length} result links: rate budget`);
+      return out;
+    }
     const workers = Array.from({ length: Math.min(concurrency, queue.length) }, async () => {
       for (let href = queue.shift(); href; href = queue.shift()) {
         try {

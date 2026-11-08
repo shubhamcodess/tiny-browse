@@ -41,6 +41,9 @@ Options:
   --no-eager             Start Chrome only when first needed
   --providers <list>     Search order, e.g. google,duckduckgo,bing
   --log-level <level>    ${LOG_LEVELS.join(" | ")} (logs go to stderr)
+  --max-tokens <n>       search/fetch: hard limit on the size of the answer
+  --focus <question>     fetch: return the sections most relevant to this
+  --cursor <cursor>      fetch: continue a page from a previous result
   --json                 search/fetch/doctor: print JSON instead of Markdown
   -h, --help             Show this help
   -v, --version          Show the version
@@ -59,6 +62,9 @@ const OPTIONS = {
   providers: { type: "string" },
   "log-level": { type: "string" },
   json: { type: "boolean" },
+  "max-tokens": { type: "string" },
+  focus: { type: "string" },
+  cursor: { type: "string" },
   http: { type: "string" },
   "sign-in": { type: "boolean" },
   help: { type: "boolean", short: "h" },
@@ -84,6 +90,11 @@ function flagsToConfig(v: Values): ConfigInput {
     browser.mode = "attach";
   }
   if (v.headful) browser.headless = false;
+  if (v["max-tokens"] !== undefined) {
+    const n = Number(v["max-tokens"]);
+    if (!Number.isInteger(n) || n < 200) throw new UsageError("--max-tokens must be a whole number of at least 200");
+    out.output = { maxTokens: n };
+  }
   if (v["no-eager"]) browser.eager = false;
   if (Object.keys(browser).length) out.browser = browser;
   if (v.providers) out.search = { providers: parseProviders(v.providers) };
@@ -144,7 +155,7 @@ export async function main(argv: string[]): Promise<number> {
     case "search":
       return runSearch(rest.join(" ").trim(), config, values.json ?? false);
     case "fetch":
-      return runFetch(rest, config, values.json ?? false);
+      return runFetch(rest, config, values.json ?? false, { focus: values.focus, cursor: values.cursor });
     case "login":
       await login(config, { signIn: values["sign-in"] ?? false });
       return 0;
@@ -185,14 +196,14 @@ async function runSearch(query: string, config: Config, json: boolean): Promise<
   }
 }
 
-async function runFetch(urls: string[], config: Config, json: boolean): Promise<number> {
-  if (!urls.length) throw new UsageError("fetch needs at least one URL");
+async function runFetch(urls: string[], config: Config, json: boolean, extra: { focus?: string; cursor?: string } = {}): Promise<number> {
+  if (!urls.length && !extra.cursor) throw new UsageError("fetch needs at least one URL (or --cursor)");
   const bad = urls.find((u) => !isHttpUrl(u));
   if (bad) throw new UsageError(`not an absolute http(s) URL: ${bad}`);
   const engine = createEngine(config);
   try {
     const result = await engine.fetch(
-      { urls, maxTokens: 8000, render: "auto", returnImages: false },
+      { urls, maxTokens: config.output.maxTokens, render: "auto", returnImages: false, focus: extra.focus, cursor: extra.cursor },
       { signal: AbortSignal.timeout(config.callTimeoutMs) },
     );
     process.stdout.write(json ? `${JSON.stringify(result.data, null, 2)}\n` : `${result.markdown}\n`);

@@ -1,5 +1,5 @@
 import type { Config } from "../config.js";
-import type { CallContext, Engine, EngineResult, Freshness, RenderMode } from "../core/engine.js";
+import { ToolInputError, type CallContext, type Engine, type EngineResult, type Freshness, type RenderMode } from "../core/engine.js";
 import { isHttpUrl, type Schema } from "./schema.js";
 
 export interface ToolAnnotations {
@@ -155,14 +155,15 @@ export function buildTools(engine: Engine, config: Config): ToolDef[] {
           description: "Also return the page's main images (for vision models).",
         },
       },
-      required: ["urls"],
       additionalProperties: false,
     },
     annotations: { title: "Read web pages", readOnlyHint: true, openWorldHint: true },
     run(args, ctx) {
+      const urls = (args.urls as string[] | undefined) ?? [];
+      if (!urls.length && !args.cursor) throw new ToolInputError("web_fetch needs `urls` (one or more absolute URLs) or a `cursor` from a previous result");
       return engine.fetch(
         {
-          urls: args.urls as string[],
+          urls,
           maxTokens: (args.max_tokens as number | undefined) ?? 8000,
           focus: args.focus as string | undefined,
           cursor: args.cursor as string | undefined,

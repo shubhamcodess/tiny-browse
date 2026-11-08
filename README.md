@@ -6,12 +6,15 @@ already installed on your computer (falling back to DuckDuckGo or Bing), reads
 the best results, and returns clean, heading-structured Markdown. No bundled
 browser, no LLM inside.
 
-> **Status: early development (milestone M4).** `web_search` finds results on
+> **Status: early development (milestone M5).** `web_search` finds results on
 > Google (falling back to DuckDuckGo and Bing) and reads the top pages;
 > `web_fetch` reads any URL. Pages come back as clean, heading-structured
 > Markdown, usually via a fast plain-HTTP path with a full Chrome load when a
 > page needs JavaScript. Local and private-network addresses are refused unless
-> `fetch.allowPrivateNetwork` is set. Not yet: `focus`/`cursor`, image bytes, PDFs.
+> `fetch.allowPrivateNetwork` is set. `max_tokens` is a hard limit on every
+> answer (counted with a built-in model-agnostic tokenizer); long pages can be
+> narrowed with `focus` or continued with `cursor`. Google is queried within a
+> strict request budget. Not yet: image bytes, PDFs.
 > Search engines often block automated browsers; see
 > [docs/DESIGN.md §10a](docs/DESIGN.md). Plan: [docs/DESIGN.md](docs/DESIGN.md).
 

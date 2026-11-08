@@ -2,6 +2,7 @@
  * Block tree -> clean Markdown, plus the polish pass and a quality score.
  * Pure functions: no browser needed, fully unit-testable.
  */
+import { countTokens } from "../util/tokens.js";
 import { IMG_CLOSE, IMG_OPEN, LINK_CLOSE, LINK_MID, LINK_OPEN, type Block, type Extracted } from "./types.js";
 
 export type LinkStyle = "inline" | "reference" | "text";
@@ -24,11 +25,8 @@ export interface Rendered {
 
 // ---------- tokens ----------
 
-/** Rough token count without a tokenizer: ~3.8 chars/token for prose, denser for code and CJK. */
-export function estimateTokens(text: string): number {
-  const cjk = (text.match(/[぀-ヿ㐀-鿿가-힯]/g) || []).length;
-  return Math.ceil((text.length - cjk) / 3.8 + cjk * 1.1);
-}
+/** Token count used for every budget (model-agnostic, see util/tokens.ts). */
+export const estimateTokens = countTokens;
 
 // ---------- headings ----------
 

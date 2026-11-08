@@ -12,6 +12,7 @@ import { discoverBrowsers } from "../src/browser/discover.js";
 import { defaultConfig, type Config } from "../src/config.js";
 import { ChromeEngine } from "../src/core/chrome-engine.js";
 import { setLogLevel } from "../src/util/log.js";
+import { countTokens } from "../src/util/tokens.js";
 
 setLogLevel("silent");
 
@@ -51,7 +52,7 @@ beforeAll(async () => {
   const config: Config = defaultConfig({});
   config.browser.profileDir = mkdtempSync(join(tmpdir(), "tiny-browse-read-"));
   config.cache.enabled = false;
-  config.search.minGapMs = 0;
+
   config.fetch.allowPrivateNetwork = true; // the test server is on 127.0.0.1
   engine = new ChromeEngine(config);
 });
@@ -163,12 +164,26 @@ describe.skipIf(!hasBrowser)("reading pages (real Chrome)", () => {
     expect(accepts.some((a) => a.startsWith("text/markdown"))).toBe(true);
   });
 
-  it("cuts long pages to the budget and says so", async () => {
-    const r = await engine.fetch({ urls: [`${base}/article`], maxTokens: 400, render: "auto", returnImages: false }, { signal: signal() });
-    const doc = (r.data.documents as any[])[0];
+  it("cuts long pages to max_tokens and continues them with a cursor", async () => {
+    const first = await engine.fetch({ urls: [`${base}/article`], maxTokens: 300, render: "auto", returnImages: false }, { signal: signal() });
+    const doc = (first.data.documents as any[])[0];
     expect(doc.truncated).toBe(true);
-    expect(doc.tokens).toBeLessThanOrEqual(420);
-    expect(r.markdown).toMatch(/Cut to fit the token budget: about \d+ more tokens/);
+    expect(countTokens(first.markdown)).toBeLessThanOrEqual(300);
+    expect(first.markdown).toMatch(/To continue, call web_fetch with cursor: "[\w-]+"/);
+
+    const next = await engine.fetch({ urls: [], cursor: doc.cursor, maxTokens: 4000, render: "auto", returnImages: false }, { signal: signal() });
+    const cont = (next.data.documents as any[])[0];
+    expect(cont.cached).toBe(true); // continued from the page cache, no new fetch
+    expect(next.markdown).toContain("…");
+    expect(next.markdown).toContain("Checklist");
+    expect(next.markdown).not.toContain("Backpressure** is what happens"); // already shown
+  }, 60_000);
+
+  it("returns the sections most relevant to a focus question", async () => {
+    const r = await engine.fetch({ urls: [`${base}/article`], maxTokens: 350, render: "auto", returnImages: false, focus: "comparison of memory use between approaches" }, { signal: signal() });
+    expect(r.markdown).toContain("| Approach | Memory | Complexity |");
+    expect(r.markdown).toMatch(/Showing the sections most relevant to "comparison of memory use between approaches"/);
+    expect(countTokens(r.markdown)).toBeLessThanOrEqual(350);
   }, 60_000);
 
   it("web_search reads the top results, one per site, within the budget", async () => {
