@@ -2,6 +2,15 @@
   "name": "tiny-browse",
   "version": "0.1.0",
   "description": "Tiny, fast, model-agnostic web search and page reading for AI agents: an MCP server and a library. Uses your installed Chrome; returns clean, heading-aware Markdown.",
+  "author": "Shubham Prakash",
+  "homepage": "https://github.com/shubhamcodess/tiny-browse#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/shubhamcodess/tiny-browse.git"
+  },
+  "bugs": {
+    "url": "https://github.com/shubhamcodess/tiny-browse/issues"
+  },
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -48,5 +57,9 @@
     "typescript": "^5.7.2",
     "vitest": "^3.0.0"
   },
-  "sideEffects": false
+  "sideEffects": false,
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  }
 }

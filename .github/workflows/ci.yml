@@ -1,0 +1,86 @@
+name: CI
+
+on:
+  push:
+    branches: [main, "release-*"]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Node ${{ matrix.node }} on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+        node: [22, 24]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm
+      # Ubuntu 24.04 blocks the unprivileged user namespaces Chrome's sandbox needs.
+      # Re-allow them on the throwaway runner instead of running Chrome with --no-sandbox.
+      - name: Let Chrome use its sandbox (Linux)
+        if: runner.os == 'Linux'
+        run: sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm run build
+      - name: Browser and environment (information)
+        run: node dist/cli.js doctor || true
+      # Unit tests, real-Chrome integration tests, lifecycle tests on the built
+      # package, and the packed-tarball install test.
+      - run: npm test
+
+  package:
+    name: Installable package
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      - name: Build the release tarball (same as the Release workflow)
+        run: npm pack
+      - name: Install the tarball into an empty prefix and run it
+        run: |
+          set -euo pipefail
+          P="$(mktemp -d)"
+          npm install -g --prefix "$P" ./tiny-browse-*.tgz
+          "$P/bin/tiny-browse" --version
+          "$P/bin/tiny-browse" --help | grep -q "tiny-browse mcp"
+          "$P/bin/tiny-browse" doctor --no-chrome
+      - name: Import it as a library from a fresh project
+        run: |
+          set -euo pipefail
+          D="$(mktemp -d)"
+          cp ./tiny-browse-*.tgz "$D/"
+          cd "$D"
+          echo '{"name":"consumer","private":true,"type":"module"}' > package.json
+          npm install ./tiny-browse-*.tgz --no-audit --no-fund
+          node -e 'import("tiny-browse").then((m) => { for (const k of ["webSearch","webFetch","createClient","doctor","TinyBrowseError"]) if (!m[k]) throw new Error("missing export " + k); console.log("exports ok", m.VERSION); })'
+          test -f node_modules/tiny-browse/dist/index.d.ts
+
+  # Single required status check for branch protection: passes only if every job above passed.
+  gate:
+    name: CI gate
+    if: always()
+    needs: [test, package]
+    runs-on: ubuntu-latest
+    steps:
+      - name: All required jobs succeeded
+        run: |
+          echo "test=${{ needs.test.result }} package=${{ needs.package.result }}"
+          [ "${{ needs.test.result }}" = "success" ] && [ "${{ needs.package.result }}" = "success" ]

@@ -152,3 +152,23 @@ npm run check   # typecheck + build + tests
 ```
 
 Requires Node 22+.
+
+## Releasing
+
+Releases are automatic on merge to `main`, driven by the `version` in
+`package.json` ([`.github/workflows/release.yml`](.github/workflows/release.yml)):
+
+1. Bump `version` (semver) in a pull request and merge it.
+2. If tag `v<version>` doesn't exist yet, the workflow runs every check, creates
+   the tag and a GitHub release with the tarball attached and generated notes.
+3. If the version isn't on npm yet and the `NPM_TOKEN` secret is set, it
+   publishes the same tarball with provenance, then installs it from npm and runs it.
+
+Merging without a version bump releases nothing. If the npm step fails, re-run
+the workflow; the tag and release aren't created twice. A manual run from the
+Actions tab is a dry run by default.
+
+One-time setup: add the repository secret `NPM_TOKEN` (an npm granular token
+with read and write access), set Settings → Actions → General → Workflow
+permissions to "Read and write", and for the landing page set Settings → Pages →
+Source to "GitHub Actions" (the Pages workflow deploys `site/` once it exists).

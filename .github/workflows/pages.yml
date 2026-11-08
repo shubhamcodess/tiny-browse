@@ -1,0 +1,76 @@
+name: Deploy site to GitHub Pages
+
+# Publishes the landing page in site/ with GitHub Pages, once it exists:
+#  - site/package.json with a "build" script: npm ci (or install) && npm run build, publishes site/dist
+#    (BASE_PATH is set to the Pages path, e.g. /tiny-browse/, for the bundler's base option);
+#  - otherwise a plain static site: publishes site/ as is (it needs a site/index.html).
+# Until site/ exists this workflow only logs a notice. One-time setup:
+# repository Settings -> Pages -> Build and deployment -> Source: GitHub Actions.
+on:
+  push:
+    branches: [main]
+    paths:
+      - "site/**"
+      - ".github/workflows/pages.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Build site
+    runs-on: ubuntu-latest
+    outputs:
+      has_site: ${{ steps.detect.outputs.has_site }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Detect the site
+        id: detect
+        run: |
+          if [ -f site/package.json ] && node -e 'process.exit(require("./site/package.json").scripts?.build ? 0 : 1)'; then
+            echo "kind=build" >> "$GITHUB_OUTPUT"; echo "has_site=true" >> "$GITHUB_OUTPUT"
+          elif [ -f site/index.html ]; then
+            echo "kind=static" >> "$GITHUB_OUTPUT"; echo "has_site=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "has_site=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::No site yet (site/index.html or site/package.json with a build script): nothing to deploy."
+          fi
+      - uses: actions/setup-node@v4
+        if: steps.detect.outputs.kind == 'build'
+        with:
+          node-version: 22
+      - id: pages
+        if: steps.detect.outputs.has_site == 'true'
+        uses: actions/configure-pages@v5
+      - name: Build
+        if: steps.detect.outputs.kind == 'build'
+        working-directory: site
+        env:
+          BASE_PATH: ${{ steps.pages.outputs.base_path }}/
+        run: |
+          if [ -f package-lock.json ]; then npm ci; else npm install --no-audit --no-fund; fi
+          npm run build
+          test -f dist/index.html
+      - uses: actions/upload-pages-artifact@v3
+        if: steps.detect.outputs.has_site == 'true'
+        with:
+          path: ${{ steps.detect.outputs.kind == 'build' && 'site/dist' || 'site' }}
+
+  deploy:
+    name: Deploy
+    needs: build
+    if: needs.build.outputs.has_site == 'true'
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
