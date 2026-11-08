@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><title>Loading…</title></head>
+<body>
+<div id="root"></div>
+<noscript>You need to enable JavaScript to run this app.</noscript>
+<script>
+  // Renders after load, like a client-side app fetching its data.
+  setTimeout(() => {
+    document.title = "Client Rendered Guide";
+    document.getElementById("root").innerHTML = `
+      <main>
+        <h1>Client Rendered Guide</h1>
+        <p>This content only exists after JavaScript runs, which is why a plain HTTP fetch would see an empty page and a browser is needed.</p>
+        <h2>Installation</h2>
+        <p>Install the package with your package manager of choice, then import it in your entry file before any other module.</p>
+        <pre><code class="language-bash">npm install client-rendered-guide</code></pre>
+        <h2>Usage</h2>
+        <p>Call the setup function once at startup. It reads its options from the environment and returns a handle you pass to the rest of the app.</p>
+      </main>`;
+  }, 600);
+</script>
+</body>
+</html>

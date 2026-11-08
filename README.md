@@ -6,9 +6,10 @@ already installed on your computer (falling back to DuckDuckGo or Bing), reads
 the best results, and returns clean, heading-structured Markdown. No bundled
 browser, no LLM inside.
 
-> **Status: early development (milestone M2).** `web_search` returns search
-> results (titles, URLs, snippets) from Google, falling back to DuckDuckGo and
-> Bing. Reading page contents (`web_fetch`, `read`) is not implemented yet.
+> **Status: early development (milestone M3).** `web_search` finds results on
+> Google (falling back to DuckDuckGo and Bing) and reads the top pages;
+> `web_fetch` reads any URL. Pages come back as clean, heading-structured
+> Markdown. Not yet: plain-HTTP fast path, `focus`/`cursor`, image bytes, PDFs.
 > Search engines often block automated browsers; see
 > [docs/DESIGN.md §10a](docs/DESIGN.md). Plan: [docs/DESIGN.md](docs/DESIGN.md).
 
