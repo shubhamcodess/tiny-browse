@@ -1,0 +1,40 @@
+{
+  "name": "tiny-browse",
+  "version": "0.0.1",
+  "description": "Tiny, fast, model-agnostic web search and page reading for AI agents, served over MCP. Uses your installed Chrome; returns clean, heading-aware Markdown.",
+  "type": "module",
+  "bin": {
+    "tiny-browse": "dist/cli.js"
+  },
+  "files": [
+    "dist"
+  ],
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "check": "npm run typecheck && npm run build && npm test",
+    "prepublishOnly": "npm run check"
+  },
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "web-search",
+    "browser",
+    "chrome",
+    "cdp",
+    "markdown",
+    "llm",
+    "agent"
+  ],
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "tsup": "^8.3.5",
+    "typescript": "^5.7.2",
+    "vitest": "^3.0.0"
+  }
+}
