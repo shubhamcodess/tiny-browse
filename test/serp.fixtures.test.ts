@@ -28,7 +28,14 @@ beforeAll(async () => {
   server = createServer((req, res) => {
     const body = files.get(req.url ?? "");
     if (!body) return void res.writeHead(404).end();
-    res.writeHead(200, { "content-type": "text/html; charset=utf-8" }).end(body);
+    // Hermetic: saved pages reference the engines' own CSS, fonts and images.
+    // Loading those made results depend on the network and the runner's fonts.
+    res
+      .writeHead(200, {
+        "content-type": "text/html; charset=utf-8",
+        "content-security-policy": "default-src 'none'; style-src 'self' 'unsafe-inline'; img-src 'self' data:",
+      })
+      .end(body);
   });
   await new Promise<void>((r) => server.listen(0, "127.0.0.1", r));
   const addr = server.address();
