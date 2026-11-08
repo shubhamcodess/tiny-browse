@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="tiny-browse">
+  <rect width="512" height="512" rx="112" fill="#1F2430"/>
+  <rect x="60" y="96" width="392" height="314" rx="30" fill="#FFFFFF"/>
+  <path d="M60 126a30 30 0 0 1 30-30h332a30 30 0 0 1 30 30v48H60z" fill="#E6EAEF"/>
+  <circle cx="98" cy="135" r="12" fill="#FF5F57"/>
+  <circle cx="134" cy="135" r="12" fill="#FEBC2E"/>
+  <circle cx="170" cy="135" r="12" fill="#28C840"/>
+  <rect x="204" y="111" width="226" height="48" rx="24" fill="#FFFFFF"/>
+  <circle cx="234" cy="133" r="11" fill="none" stroke="#1A7F37" stroke-width="5.5"/>
+  <path d="M242 141l9 9" stroke="#1A7F37" stroke-width="5.5" stroke-linecap="round"/>
+  <text x="264" y="146" font-family="'SF Mono', Menlo, Consolas, 'DejaVu Sans Mono', monospace" font-size="32" font-weight="600" fill="#1F2430">tiny</text>
+  <g stroke="#1A7F37" stroke-width="14" stroke-linecap="round">
+    <path d="M152 206l-10 92"/><path d="M188 206l-10 92"/>
+    <path d="M120 236h90"/><path d="M114 270h90"/>
+  </g>
+  <rect x="236" y="214" width="176" height="22" rx="11" fill="#1F2430"/>
+  <rect x="236" y="256" width="126" height="18" rx="9" fill="#C9D3DD"/>
+  <rect x="112" y="320" width="300" height="18" rx="9" fill="#C9D3DD"/>
+  <rect x="112" y="354" width="216" height="18" rx="9" fill="#C9D3DD"/>
+</svg>
