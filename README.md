@@ -1,174 +1,306 @@
 # tiny-browse
 
-Tiny, fast, model-agnostic web search and page reading for AI agents, served
-over [MCP](https://modelcontextprotocol.io) and usable as a library. It searches Google in the Chrome
-already installed on your computer (falling back to DuckDuckGo or Bing), reads
-the best results, and returns clean, heading-structured Markdown. No bundled
-browser, no LLM inside.
+Web search and page reading for AI agents. An MCP server and a Node.js library
+that searches Google in the Chrome already on your computer, reads the best
+results and returns clean, heading-structured Markdown within a token budget.
 
-> **Status: early development (0.1).** `web_search` finds results on
-> Google (falling back to DuckDuckGo and Bing) and reads the top pages;
-> `web_fetch` reads any URL. Pages come back as clean, heading-structured
-> Markdown, usually via a fast plain-HTTP path with a full Chrome load when a
-> page needs JavaScript. Local and private-network addresses are refused unless
-> `fetch.allowPrivateNetwork` is set. `max_tokens` is a hard limit on every
-> answer (counted with a built-in model-agnostic tokenizer); long pages can be
-> narrowed with `focus` or continued with `cursor`. Google is queried within a
-> strict request budget; results and pages are cached on disk. `return_images`
-> returns image bytes for vision models. `serve --http PORT` adds MCP over HTTP
-> and a JSON API. Not yet: PDFs, web UI (v0.2).
-> Search engines often block automated browsers; see
-> [docs/DESIGN.md §10a](docs/DESIGN.md). Plan: [docs/DESIGN.md](docs/DESIGN.md).
+[![npm](https://img.shields.io/npm/v/tiny-browse)](https://www.npmjs.com/package/tiny-browse)
+[![CI](https://github.com/shubhamcodess/tiny-browse/actions/workflows/ci.yml/badge.svg)](https://github.com/shubhamcodess/tiny-browse/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue)](https://github.com/shubhamcodess/tiny-browse/blob/main/LICENSE)
+[![Node](https://img.shields.io/node/v/tiny-browse)](https://nodejs.org)
 
-## Use with an agent
+- **Works with any agent or model.** No LLM inside. Speaks MCP over stdio and HTTP, plus a plain JSON API.
+- **No bundled browser.** Drives your installed Chrome, Edge, Brave or Chromium. Zero runtime dependencies; the package is about 130 kB.
+- **Clean Markdown.** Main content only, with headings, code blocks, tables and lists kept; menus, ads and cookie banners removed.
+- **Token-aware.** `max_tokens` is a hard limit. Long pages can be narrowed to the sections relevant to a question, or continued with a cursor.
+- **Fast.** Pages are read over plain HTTP when that works (typically 0.2–1 s) and in Chrome when they need JavaScript.
+- **Careful by default.** Strict request budgets for search engines, no CAPTCHA solving, no access to local or private networks, pages read without your cookies.
+
+## Contents
+
+- [Requirements](#requirements)
+- [Install](#install)
+- [Connect an agent](#connect-an-agent)
+- [Tools](#tools)
+- [Use as a library](#use-as-a-library)
+- [Command line](#command-line)
+- [Configuration](#configuration)
+- [How it works](#how-it-works)
+- [Security and privacy](#security-and-privacy)
+- [Limitations](#limitations)
+- [Troubleshooting](#troubleshooting)
+- [Contributing](#contributing)
+- [License](#license)
+
+## Requirements
+
+- Node.js 22 or later
+- Google Chrome, Chromium, Microsoft Edge or Brave, installed normally. Not needed for the no-Chrome mode (`--no-chrome` / `mode: "http"`).
+- macOS or Linux. Windows is expected to work but is not tested yet.
+
+## Install
+
+Agents can run tiny-browse with `npx` without installing it (see below). To install it:
 
 ```bash
-npx tiny-browse init
+npm install -g tiny-browse   # the tiny-browse command
+npm install tiny-browse      # as a library in your project
 ```
 
-`init` creates the config file and Chrome profile, then prints the snippet to
-paste into your agent. For Claude Code that is:
+Check your setup:
+
+```bash
+tiny-browse doctor
+```
+
+## Connect an agent
+
+Agents start tiny-browse themselves with `npx -y tiny-browse mcp`. `tiny-browse config <client>` prints the exact snippet for a client.
+
+**Claude Code**
 
 ```bash
 claude mcp add tiny-browse -- npx -y tiny-browse mcp
 ```
 
-For other clients, print the snippet: `tiny-browse config <client>` where
-client is `claude-code`, `claude-desktop`, `cursor`, `vscode`, `codex` or `generic`.
-When run from a source checkout, the snippets point at that checkout's
-`dist/cli.js` instead of `npx`.
+**VS Code (GitHub Copilot)**: `.vscode/mcp.json`
 
-Agents start the server themselves (`tiny-browse mcp`). Running plain
-`tiny-browse` in a terminal shows help and the snippet; launched by an agent it
-serves MCP, so older `npx -y tiny-browse` configs keep working. For a warm
-Chrome shared by several agents and library callers, keep
-`tiny-browse serve --http 7777` running.
+```json
+{
+  "servers": {
+    "tiny-browse": { "type": "stdio", "command": "npx", "args": ["-y", "tiny-browse", "mcp"] }
+  }
+}
+```
+
+**Cursor** (`~/.cursor/mcp.json`), **Claude Desktop** (`claude_desktop_config.json`) and most other clients:
+
+```json
+{
+  "mcpServers": {
+    "tiny-browse": { "command": "npx", "args": ["-y", "tiny-browse", "mcp"] }
+  }
+}
+```
+
+**Codex CLI**: `~/.codex/config.toml`
+
+```toml
+[mcp_servers.tiny-browse]
+command = "npx"
+args = ["-y", "tiny-browse", "mcp"]
+```
+
+### Shared HTTP server
+
+To keep one warm Chrome for several agents and library callers, run a server and point clients at it:
+
+```bash
+tiny-browse serve --http 7777
+```
+
+| Endpoint | Purpose |
+|---|---|
+| `POST /mcp` | MCP over Streamable HTTP, e.g. `{ "type": "http", "url": "http://127.0.0.1:7777/mcp" }` |
+| `POST /search`, `POST /fetch` | JSON API: tool arguments in, `{ markdown, data, images }` out |
+| `GET /health` | Health check |
+
+The server listens on `127.0.0.1` and rejects requests from web pages (Origin check). To listen on another address you must set a token (`--token` or `TINY_BROWSE_TOKEN`), which clients send as `Authorization: Bearer <token>`.
 
 ## Tools
 
-- **web_search** `{ query, max_results?, read?, max_tokens?, site?, freshness?, return_images? }`
-- **web_fetch** `{ urls, max_tokens?, focus?, cursor?, render?, return_images? }`
+### `web_search`
 
-## CLI
+Searches the web and reads the best results. Google comes first; DuckDuckGo and Bing are fallbacks.
 
-```
-tiny-browse mcp                 MCP server on stdio (what agents run)
-tiny-browse serve --http PORT   MCP over HTTP + JSON API, warm Chrome
-tiny-browse init                first-time setup + agent snippet
-tiny-browse search <query>      print Markdown results
-tiny-browse fetch <url...>      print a page as Markdown
-tiny-browse login [--sign-in]   accept Google consent in the tiny-browse Chrome profile
-tiny-browse doctor              environment checks, finds and test-starts Chrome
-tiny-browse open <url>          debug: load a URL in headless Chrome
-tiny-browse config <client>     MCP setup snippet
-```
+| Parameter | Type | Default | Description |
+|---|---|---|---|
+| `query` | string | required | Plain words. Google operators such as `site:` and `"quotes"` work. |
+| `max_results` | 1–10 | 5 | Results to consider |
+| `read` | 0–10 | 3 | Top results to open and read; 0 returns only the result list |
+| `max_tokens` | 200–200000 | 6000 | Hard limit on the whole answer |
+| `site` | string | | Only results from this domain |
+| `freshness` | `any` `day` `week` `month` `year` | `any` | Only recent results |
+| `return_images` | boolean | false | Also return the main images of the pages read |
 
-Run `tiny-browse --help` for all options. `--no-chrome` runs without Chrome.
+### `web_fetch`
+
+Reads pages by URL.
+
+| Parameter | Type | Default | Description |
+|---|---|---|---|
+| `urls` | string[] (1–10) | | Absolute http(s) URLs |
+| `max_tokens` | 200–200000 | 8000 | Hard limit on the whole answer |
+| `focus` | string | | Return only the sections most relevant to this question |
+| `cursor` | string | | Continue a page that was cut short (from a previous result) |
+| `render` | `auto` `http` `browser` | `auto` | `auto` uses the fastest way that works |
+| `return_images` | boolean | false | Also return the pages' main images |
+
+Give `urls` or `cursor`. Page content in the output is marked as untrusted, so agents can tell it apart from instructions.
 
 ## Use as a library
-
-```bash
-npm install tiny-browse
-```
 
 ```ts
 import { webSearch, webFetch, createClient, TinyBrowseError } from "tiny-browse";
 
-// One-shot: starts what it needs, shuts everything down before returning.
-const r = await webSearch({ query: "node.js stream backpressure", read: 2, max_tokens: 4000 });
-for (const hit of r.results) console.log(hit.rank, hit.title, hit.url);
-console.log(r.pages[0]?.markdown); // clean Markdown of the best page
-console.log(r.markdown);           // everything, ready to hand to an LLM
+// One-shot calls start what they need and shut everything down before returning.
+const result = await webSearch({ query: "node.js stream backpressure", read: 2, max_tokens: 4000 });
+for (const hit of result.results) console.log(hit.rank, hit.title, hit.url);
+console.log(result.pages[0]?.markdown); // one page as Markdown
+console.log(result.markdown);           // everything, ready for an LLM
 
-const page = await webFetch({ urls: ["https://go.dev/doc/effective_go"], focus: "goroutines" });
+const docs = await webFetch({ urls: ["https://go.dev/doc/effective_go"], focus: "goroutines" });
 
-// Several calls: one client reuses one Chrome. Always close it.
+// For several calls, a client reuses one Chrome. Always close it.
 const client = await createClient({ timeoutMs: 15_000 });
 try {
   await client.webSearch({ query: "..." });
-  await client.webFetch({ urls: ["https://..."] });
 } finally {
   await client.close();
 }
 ```
 
-Inputs are exactly the MCP tools' parameters (`WebSearchInput`, `WebFetchInput`).
-Results are structured:
+Inputs are the tools' parameters above (`WebSearchInput`, `WebFetchInput`). TypeScript types are included.
 
-- `webSearch` → `{ query, provider, cached, warning?, results: [{ rank, title, url, snippet }], pages: [{ url, finalUrl, title, markdown, tokens, truncated, cursor? }], failed: [{ url, code, message }], attempts, markdown, images }`
-- `webFetch` → `{ pages, failed, markdown, images }`. Throws if no page could be read; partial failures are listed in `failed`.
-- `doctor()` → `[{ name, ok, detail }]`
-
-No results is an empty `results` list, not an error.
-
-**Options** (`ClientOptions`, all optional):
-
-| Option | Meaning |
+| Function | Returns |
 |---|---|
-| `signal` | `AbortSignal` that cancels the call |
+| `webSearch(input, options?)` | `{ query, provider, cached, warning?, results, pages, failed, attempts, markdown, images }` |
+| `webFetch(input, options?)` | `{ pages, failed, markdown, images }` |
+| `createClient(options?)` | `{ webSearch, webFetch, close }`; methods also accept `{ signal, timeoutMs }` |
+| `doctor(options?)` | `[{ name, ok, detail }]` |
+
+A result is `{ rank, title, url, snippet }`; a page is `{ url, finalUrl, title, markdown, tokens, truncated, cursor? }`; a failure is `{ url, code, message }`. No search results is an empty list, not an error. `webFetch` throws only if no page could be read.
+
+### Options
+
+| Option | Description |
+|---|---|
+| `signal` | `AbortSignal` that cancels calls |
 | `timeoutMs` | Deadline per call (default 20000) |
-| `mode` | `"chrome"` (default) or `"http"`: no Chrome at all, faster start, Google skipped, pages that need JavaScript come back thin |
-| `useServer` | `"auto"`: use a running `tiny-browse serve --http` (found via the cache folder) and its warm Chrome; else run in-process. Default `"never"` |
-| `config` | Settings object (same shape as the config file). When given, no config files or `TINY_BROWSE_*` variables are read |
+| `mode` | `"chrome"` (default), or `"http"` for no Chrome: faster start, Google skipped, pages that need JavaScript come back thin |
+| `useServer` | `"auto"` uses a running `tiny-browse serve --http` and its warm Chrome; `"never"` (default) runs in-process |
+| `config` | Settings object (see [Configuration](#configuration)). When given, no config files or `TINY_BROWSE_*` variables are read |
 | `cacheDir` | Folder for caches, rate budgets and the Chrome profile |
-| `chromePath` / `cdpUrl` | Use a specific browser executable, or an already running Chrome |
-| `logger`, `logLevel` | Receive log messages. Default: silent. tiny-browse never writes to stdout or stderr as a library |
+| `chromePath`, `cdpUrl` | A specific browser executable, or an already running Chrome |
+| `logger`, `logLevel` | Receive log messages. The library is silent by default and never writes to stdout or stderr |
 
-**Errors** are `TinyBrowseError` with a `code`: `chrome_not_found`, `timeout`,
-`blocked` (CAPTCHA, bot check or rate budget), `network`, `private_address`,
-`aborted`, `invalid_input`.
+### Errors
 
-**Lifecycle.** Importing has no side effects: no files, no Chrome, no output.
-Nothing starts until the first call; the Chrome profile is created then. After
-a one-shot call, or `close()`, nothing is left running, so a CLI's process
-exits immediately. Chrome is also killed if your process exits or is stopped
-with Ctrl+C or `kill` mid-call. `close()` can be called more than once.
+Errors are `TinyBrowseError` with a `code`:
 
-**Versioning.** The exported functions, types and error codes follow semver:
-breaking changes only in a new major version; new error codes and optional
-fields may be added in minor versions.
+| Code | Meaning |
+|---|---|
+| `chrome_not_found` | No usable browser, or it would not start |
+| `timeout` | The call exceeded `timeoutMs` |
+| `blocked` | A CAPTCHA, bot check or rate budget stopped the request |
+| `network` | DNS, connection or HTTP failure |
+| `private_address` | The URL points at this computer or a private network |
+| `aborted` | The `signal` fired |
+| `invalid_input` | Invalid input or options; the message says what to fix |
+
+### Lifecycle
+
+Importing has no side effects. Nothing starts until the first call. After a one-shot call or `close()`, nothing is left running, so a CLI exits immediately. Chrome is also stopped if your process exits or is interrupted. `close()` can be called more than once.
+
+## Command line
+
+| Command | Description |
+|---|---|
+| `tiny-browse mcp` | MCP server on stdio (what agents run) |
+| `tiny-browse serve --http PORT` | MCP over HTTP plus the JSON API |
+| `tiny-browse search <query>` | Search and print Markdown |
+| `tiny-browse fetch <url...>` | Read pages and print Markdown |
+| `tiny-browse doctor` | Check Node, the browser and search budgets |
+| `tiny-browse login [--sign-in]` | Open Chrome on the tiny-browse profile to accept Google's consent screen (optionally sign in) |
+| `tiny-browse init` | Create a config file and print the agent snippet |
+| `tiny-browse config <client>` | Print setup for `claude-code`, `claude-desktop`, `cursor`, `vscode`, `codex` or `generic` |
+
+Common options: `--json`, `--max-tokens <n>`, `--focus <question>`, `--cursor <cursor>`, `--no-chrome`, `--browser-path <path>`, `--cdp-url <url>`, `--headful`, `--providers <list>`, `--log-level <level>`, `--config <file>`. See `tiny-browse --help`.
+
+Run without a command in a terminal, `tiny-browse` prints help. Started by an agent, it runs the MCP server.
 
 ## Configuration
 
-Precedence: defaults ← `~/.config/tiny-browse/config.json` ←
-`./tiny-browse.config.json` ← `--config <file>` ← `TINY_BROWSE_*` env ← flags.
+Settings are read in this order, later ones winning: defaults, `~/.config/tiny-browse/config.json`, `./tiny-browse.config.json`, `--config <file>`, environment variables, command-line flags.
 
 ```json
 {
-  "browser": { "headless": true, "onChallenge": "fallback" },
   "search": { "providers": ["google", "duckduckgo", "bing"], "read": 3 },
-  "output": { "maxTokens": 6000 }
+  "output": { "maxTokens": 6000 },
+  "fetch": { "allowHosts": ["intranet.example"] }
 }
 ```
 
-Environment: `TINY_BROWSE_CHROME`, `TINY_BROWSE_CDP_URL`, `TINY_BROWSE_HEADLESS`,
-`TINY_BROWSE_PROVIDERS`, `TINY_BROWSE_LOG_LEVEL`, `TINY_BROWSE_CONFIG`.
+| Setting | Default | Description |
+|---|---|---|
+| `browser.path` | auto-detect | Browser executable |
+| `browser.mode` | `launch` | `launch`, `attach` (to `browser.cdpUrl`) or `off` (no Chrome) |
+| `browser.headless` | `true` | Run Chrome without a window |
+| `browser.onChallenge` | `fallback` | On a CAPTCHA: use the next engine, or `show` a window so you can solve it |
+| `browser.idleTimeoutMs` | 300000 | Stop Chrome after this long unused |
+| `search.providers` | `google, duckduckgo, bing` | Engines, in order |
+| `search.limits` | see below | Per-engine request budgets, e.g. `{ "google": { "perHour": 10 } }` |
+| `fetch.timeoutMs` | 8000 | Per page |
+| `fetch.maxBytes` | 5 MB | Largest page read |
+| `fetch.allowPrivateNetwork` | `false` | Allow local and private addresses |
+| `fetch.allowHosts` | `[]` | Specific private hosts to allow (`host` or `host:port`) |
+| `output.maxTokens` | 6000 | Default `max_tokens` for search |
+| `output.links` | `reference` | `reference`, `inline` or `text` |
+| `ranking.prefer`, `ranking.block` | `[]` | Domains to favour or never read |
+| `cache.enabled` | `true` | Cache pages (1 hour) and search results (10 minutes) on disk |
 
-## Development
+Default search budgets per engine, shared by every tiny-browse process on the computer:
 
-```bash
-npm install
-npm run check   # typecheck + build + tests
-```
+| Engine | Gap between requests | Per minute | Per hour | Per day |
+|---|---|---|---|---|
+| Google | 8 s + jitter | 3 | 20 | 100 |
+| DuckDuckGo, Bing | 3 s + jitter | 6 | 60 | 300 |
 
-Requires Node 22+.
+When a budget is used up the engine is skipped and the next one is tried. After a CAPTCHA an engine is paused for 15 minutes, then 1 hour, 4 hours and 24 hours if it repeats.
 
-## Releasing
+Environment variables: `TINY_BROWSE_CHROME`, `TINY_BROWSE_CDP_URL`, `TINY_BROWSE_HEADLESS`, `TINY_BROWSE_PROVIDERS`, `TINY_BROWSE_LOG_LEVEL`, `TINY_BROWSE_CONFIG`, `TINY_BROWSE_TOKEN`.
 
-Releases are automatic on merge to `main`, driven by the `version` in
-`package.json` ([`.github/workflows/release.yml`](.github/workflows/release.yml)):
+## How it works
 
-1. Bump `version` (semver) in a pull request and merge it.
-2. If tag `v<version>` doesn't exist yet, the workflow runs every check, creates
-   the tag and a GitHub release with the tarball attached and generated notes.
-3. If the version isn't on npm yet and the `NPM_TOKEN` secret is set, it
-   publishes the same tarball with provenance, then installs it from npm and runs it.
+1. **Search.** The results page is read three independent ways (visual layout, the accessibility tree, a selector table) and the results are merged by vote, so a redesign of the results page rarely breaks parsing. Health checks catch CAPTCHAs, consent walls and off-topic results.
+2. **Read.** Each page is fetched over plain HTTP and rendered in a Chrome tab with scripts off; if that looks thin, a full Chrome load takes over. Which way works is remembered per site.
+3. **Extract.** The main content is chosen by prose density and layout, not class names. Headings, code, tables, lists and quotes are kept; hidden text and boilerplate are dropped.
+4. **Fit.** Pages are split into heading-aware sections and packed into the token budget, ranked by relevance (BM25) when a focus or query is given. Tokens are counted with a built-in, model-agnostic estimator.
 
-Merging without a version bump releases nothing. If the npm step fails, re-run
-the workflow; the tag and release aren't created twice. A manual run from the
-Actions tab is a dry run by default.
+Design notes: [docs/DESIGN.md](https://github.com/shubhamcodess/tiny-browse/blob/main/docs/DESIGN.md).
 
-One-time setup: add the repository secret `NPM_TOKEN` (an npm granular token
-with read and write access), set Settings → Actions → General → Workflow
-permissions to "Read and write", and for the landing page set Settings → Pages →
-Source to "GitHub Actions" (the Pages workflow deploys `site/` once it exists).
+## Security and privacy
+
+- Local and private network addresses are refused, including redirects to them and requests made by pages inside Chrome.
+- Pages are read in a separate browser context without cookies. Only the search engines use the tiny-browse Chrome profile.
+- tiny-browse uses its own Chrome profile, never your everyday one.
+- Hidden page text is removed and page content is marked as untrusted, to limit prompt injection.
+- CAPTCHAs are never solved automatically and bot detection is not evaded.
+- Queries and pages are cached under your user's cache folder; set `cache.enabled: false` to turn this off.
+
+Report vulnerabilities as described in [SECURITY.md](https://github.com/shubhamcodess/tiny-browse/blob/main/SECURITY.md).
+
+## Limitations
+
+- Search engines may block automated browsers, depending on your network. Running `tiny-browse login` once usually helps with Google. Reading pages is not affected.
+- Some sites refuse automated access with a bot check; this is reported, not bypassed.
+- No PDF support yet.
+- tiny-browse is pre-1.0: breaking changes bump the minor version (0.1 → 0.2). See the [changelog](https://github.com/shubhamcodess/tiny-browse/blob/main/CHANGELOG.md).
+
+## Troubleshooting
+
+| Problem | Fix |
+|---|---|
+| `chrome_not_found` or "No Chrome … found" | Install Chrome, or set `--browser-path` / `TINY_BROWSE_CHROME` |
+| Google keeps showing CAPTCHAs | Run `tiny-browse login`; searches fall back to other engines meanwhile. `tiny-browse doctor` shows budgets and pauses |
+| Chrome fails to start on Ubuntu 24.04 | Allow the user namespaces its sandbox needs: `sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0` |
+| "port … is already in use" | Another `tiny-browse serve` is running; stop it or pick another port |
+| A page comes back thin | Try `render: "browser"`; the site may need JavaScript or block automation |
+
+## Contributing
+
+See [CONTRIBUTING.md](https://github.com/shubhamcodess/tiny-browse/blob/main/CONTRIBUTING.md). This project follows a [Code of Conduct](https://github.com/shubhamcodess/tiny-browse/blob/main/CODE_OF_CONDUCT.md).
+
+## License
+
+[MIT](https://github.com/shubhamcodess/tiny-browse/blob/main/LICENSE)
