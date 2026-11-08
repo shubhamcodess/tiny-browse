@@ -71,3 +71,8 @@ export class StubEngine implements Engine {
 
   async close(): Promise<void> {}
 }
+
+/** The caller's input can't be used as given; the message says how to fix it. */
+export class ToolInputError extends Error {
+  override name = "ToolInputError";
+}

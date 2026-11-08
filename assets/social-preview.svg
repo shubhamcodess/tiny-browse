@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="640" viewBox="0 0 1280 640" role="img" aria-label="tiny-browse: give any AI agent the web, in 126 kB">
+  <rect width="1280" height="640" fill="#0D1117"/>
+  <path transform="translate(110 88) scale(2)" fill="#8B949E" d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/>
+  <g font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif">
+    <text x="154" y="114" font-size="26" fill="#8B949E">shubhamcodess/tiny-browse</text>
+    <text x="110" y="205" font-size="84" font-weight="600" fill="#F0F6FC">tiny-browse</text>
+    <text x="110" y="285" font-size="40" fill="#C9D1D9">Give any AI agent the web,</text>
+    <text x="110" y="337" font-size="40" fill="#C9D1D9">in 126 kB.</text>
+    <text x="110" y="560" font-size="28" fill="#8B949E">MCP server and Node.js library · zero dependencies</text>
+  </g>
+  <rect x="110" y="392" width="740" height="92" rx="16" fill="#161B22" stroke="#30363D" stroke-width="2"/>
+  <g font-family="'SF Mono', Menlo, Consolas, 'DejaVu Sans Mono', monospace" font-size="30">
+    <text x="144" y="448" fill="#7EE787">$</text>
+    <text x="178" y="448" fill="#F0F6FC">npx -y @shubhamcodess/tiny-browse</text>
+  </g>
+  <g transform="translate(890 180) scale(0.5664)">
+    <rect width="512" height="512" rx="112" fill="#1F2430"/>
+    <rect x="60" y="96" width="392" height="314" rx="30" fill="#FFFFFF"/>
+    <path d="M60 126a30 30 0 0 1 30-30h332a30 30 0 0 1 30 30v48H60z" fill="#E6EAEF"/>
+    <circle cx="98" cy="135" r="12" fill="#FF5F57"/>
+    <circle cx="134" cy="135" r="12" fill="#FEBC2E"/>
+    <circle cx="170" cy="135" r="12" fill="#28C840"/>
+    <rect x="204" y="111" width="226" height="48" rx="24" fill="#FFFFFF"/>
+    <circle cx="234" cy="133" r="11" fill="none" stroke="#1A7F37" stroke-width="5.5"/>
+    <path d="M242 141l9 9" stroke="#1A7F37" stroke-width="5.5" stroke-linecap="round"/>
+    <text x="264" y="146" font-family="'SF Mono', Menlo, Consolas, 'DejaVu Sans Mono', monospace" font-size="32" font-weight="600" fill="#1F2430">tiny</text>
+    <g stroke="#1A7F37" stroke-width="14" stroke-linecap="round">
+      <path d="M152 206l-10 92"/><path d="M188 206l-10 92"/>
+      <path d="M120 236h90"/><path d="M114 270h90"/>
+    </g>
+    <rect x="236" y="214" width="176" height="22" rx="11" fill="#1F2430"/>
+    <rect x="236" y="256" width="126" height="18" rx="9" fill="#C9D3DD"/>
+    <rect x="112" y="320" width="300" height="18" rx="9" fill="#C9D3DD"/>
+    <rect x="112" y="354" width="216" height="18" rx="9" fill="#C9D3DD"/>
+  </g>
+</svg>

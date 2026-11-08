@@ -1,0 +1,122 @@
+<!doctype html>
+<!-- Hand-written page in the shape of a Google results page (classes made up).
+     Includes the parts a parser must skip: ads, "People also ask", a news
+     carousel, sitelinks, a knowledge panel and footer links. -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>model context protocol - Google Search</title>
+<style>
+  body { font: 14px arial, sans-serif; margin: 0; width: 1400px; }
+  header { height: 60px; border-bottom: 1px solid #ddd; }
+  header a { margin: 0 8px; font-size: 13px; }
+  .mc { margin-left: 180px; width: 650px; float: left; }
+  .rp { margin-left: 80px; width: 370px; float: left; }
+  .r { margin: 0 0 28px; }
+  .r a { text-decoration: none; }
+  .r h3 { font-size: 20px; font-weight: 400; margin: 4px 0; }
+  .ct { font-size: 12px; color: #4d5156; }
+  .sn { color: #4d5156; line-height: 1.58; }
+  .sl { margin-left: 40px; }
+  .sl h3 { font-size: 16px; }
+  .ads .lbl { font-weight: bold; font-size: 12px; }
+  .paa div[role=button] { padding: 12px 0; border-bottom: 1px solid #eee; }
+  .car { display: flex; gap: 12px; margin-bottom: 28px; }
+  .car a { display: block; width: 200px; }
+  .car div[role=heading] { font-size: 16px; }
+  .kp h2 { font-size: 26px; }
+  footer { clear: both; padding: 20px; }
+</style>
+</head>
+<body>
+<header role="banner">
+  <a href="https://www.google.com/">Google</a>
+  <a href="https://www.google.com/search?q=model+context+protocol&tbm=isch">Images</a>
+  <a href="https://maps.google.com/">Maps</a>
+</header>
+
+<div class="mc" id="center">
+  <div class="ads" aria-label="Ads">
+    <div class="r">
+      <span class="lbl">Sponsored</span>
+      <a href="https://www.googleadservices.com/pagead/aclk?adurl=https://ads.example.net/mcp-platform">
+        <h3>Enterprise MCP Platform - Deploy Agents in Minutes</h3>
+        <div class="ct">ads.example.net</div>
+      </a>
+      <div class="sn">The leading platform for building, deploying and scaling Model Context Protocol servers for enterprises.</div>
+    </div>
+  </div>
+
+  <div class="r">
+    <a href="https://modelcontextprotocol.io/introduction">
+      <h3>Introduction - Model Context Protocol</h3>
+      <div class="ct">modelcontextprotocol.io › introduction</div>
+    </a>
+    <div class="sn">MCP is an open protocol that standardizes how applications provide context to large language models. Think of MCP like a USB-C port for AI applications.</div>
+    <div class="sl">
+      <a href="https://modelcontextprotocol.io/quickstart"><h3>Quickstart</h3></a>
+      <a href="https://modelcontextprotocol.io/specification"><h3>Specification</h3></a>
+    </div>
+  </div>
+
+  <div class="paa">
+    <div role="heading" aria-level="2" style="font-size:20px">People also ask</div>
+    <div role="button" aria-expanded="false">What is the model context protocol used for?</div>
+    <div role="button" aria-expanded="false">Who created the model context protocol?</div>
+    <div role="button" aria-expanded="false">Is MCP open source?</div>
+    <div style="display:none"><a href="https://hidden.example.com/answer"><h3>Hidden answer source for the protocol</h3></a></div>
+  </div>
+
+  <div class="r">
+    <a href="https://www.google.com/url?q=https://en.wikipedia.org/wiki/Model_Context_Protocol&amp;sa=U&amp;ved=2ahUKE">
+      <h3>Model Context Protocol - Wikipedia</h3>
+      <div class="ct">en.wikipedia.org › wiki › Model_Context_Protocol</div>
+    </a>
+    <div class="sn">The Model Context Protocol (MCP) is an open standard and open-source framework introduced by Anthropic in November 2024 to standardize the way AI systems integrate with external tools.</div>
+  </div>
+
+  <div role="heading" aria-level="2" style="font-size:20px">Top stories</div>
+  <div class="car">
+    <a href="https://news.example.com/a"><div role="heading" aria-level="3">Model context protocol adoption grows</div></a>
+    <a href="https://news.example.org/b"><div role="heading" aria-level="3">New protocol release announced</div></a>
+    <a href="https://news.example.net/c"><div role="heading" aria-level="3">Context protocol tooling roundup</div></a>
+  </div>
+
+  <div class="r">
+    <a href="https://github.com/modelcontextprotocol/modelcontextprotocol">
+      <h3>modelcontextprotocol/modelcontextprotocol: Specification and documentation</h3>
+      <div class="ct">github.com › modelcontextprotocol</div>
+    </a>
+    <div class="sn">This repository contains the specification and protocol schema for the Model Context Protocol, plus the documentation site.</div>
+  </div>
+
+  <div class="r">
+    <a href="https://www.anthropic.com/news/model-context-protocol?utm_source=google">
+      <h3>Introducing the Model Context Protocol - Anthropic</h3>
+      <div class="ct">anthropic.com › news</div>
+    </a>
+    <div class="sn">Nov 25, 2024 — The Model Context Protocol is an open standard for connecting AI assistants to the systems where data lives.</div>
+  </div>
+
+  <div class="r">
+    <a href="https://blog.example.dev/what-is-mcp">
+      <h3>What is MCP? A practical guide to the model context protocol</h3>
+      <div class="ct">blog.example.dev › what-is-mcp</div>
+    </a>
+    <div class="sn">A hands-on explanation of MCP servers, clients, tools and resources, with examples in TypeScript and Python for building your first protocol server.</div>
+  </div>
+</div>
+
+<div class="rp kp" role="complementary">
+  <h2>Model Context Protocol</h2>
+  <div>Open protocol</div>
+  <a href="https://knowledge.example.com/mcp"><h3>More about model context protocol</h3></a>
+</div>
+
+<footer role="contentinfo">
+  <a href="https://policies.google.com/privacy">Privacy</a>
+  <a href="https://policies.google.com/terms">Terms</a>
+  <a href="https://support.google.com/websearch">Help</a>
+</footer>
+</body>
+</html>

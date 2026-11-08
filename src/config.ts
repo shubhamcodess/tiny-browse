@@ -10,8 +10,11 @@ export interface Config {
   browser: {
     /** Explicit browser executable. Empty = auto-discover. */
     path: string;
-    /** `launch` our own Chrome, or `attach` to one at `cdpUrl`. */
-    mode: "launch" | "attach";
+    /**
+     * `launch` our own Chrome, `attach` to one at `cdpUrl`, or `off`: no Chrome
+     * at all (plain HTTP search and reading; faster, lower coverage).
+     */
+    mode: "launch" | "attach" | "off";
     cdpUrl: string;
     headless: boolean;
     /** Launch at server start (Chrome-first). */
@@ -24,8 +27,11 @@ export interface Config {
   search: {
     /** Ordered chain: first is primary, rest are fallbacks. */
     providers: SearchProviderName[];
-    /** Minimum gap between Google queries. */
-    minGapMs: number;
+    /**
+     * Per-engine request budgets, overriding the strict defaults in
+     * search/budget.ts, e.g. { "google": { "perHour": 10 } }.
+     */
+    limits: Record<string, Partial<{ minGapMs: number; jitterMs: number; perMinute: number; perHour: number; perDay: number }>>;
     maxResults: number;
     read: number;
   };
@@ -34,6 +40,8 @@ export interface Config {
     maxBytes: number;
     concurrency: number;
     allowPrivateNetwork: boolean;
+    /** Private hosts to allow anyway, as "host" or "host:port". */
+    allowHosts: string[];
   };
   output: {
     maxTokens: number;
@@ -77,7 +85,7 @@ export function defaultConfig(env: Record<string, string | undefined> = process.
     },
     search: {
       providers: ["google", "duckduckgo", "bing"],
-      minGapMs: 1500,
+      limits: {},
       maxResults: 5,
       read: 3,
     },
@@ -86,6 +94,7 @@ export function defaultConfig(env: Record<string, string | undefined> = process.
       maxBytes: 5 * 1024 * 1024,
       concurrency: 4,
       allowPrivateNetwork: false,
+      allowHosts: [],
     },
     output: { maxTokens: 6000, links: "reference" },
     images: { mode: "off", max: 4, maxBytes: 1024 * 1024 },
@@ -231,7 +240,7 @@ export function validateConfig(c: Config): void {
   const fail = (msg: string) => {
     throw new ConfigError(msg);
   };
-  if (!["launch", "attach"].includes(c.browser.mode)) fail(`browser.mode must be "launch" or "attach"`);
+  if (!["launch", "attach", "off"].includes(c.browser.mode)) fail(`browser.mode must be "launch", "attach" or "off"`);
   if (c.browser.mode === "attach" && !c.browser.cdpUrl) fail("browser.mode is \"attach\" but browser.cdpUrl is empty");
   if (!["fallback", "show"].includes(c.browser.onChallenge)) fail(`browser.onChallenge must be "fallback" or "show"`);
   parseProviders(c.search.providers.join(","));

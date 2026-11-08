@@ -1,19 +1,41 @@
 {
-  "name": "tiny-browse",
-  "version": "0.0.1",
-  "description": "Tiny, fast, model-agnostic web search and page reading for AI agents, served over MCP. Uses your installed Chrome; returns clean, heading-aware Markdown.",
+  "name": "@shubhamcodess/tiny-browse",
+  "version": "0.1.0",
+  "description": "Web search and page reading for AI agents and Node.js: an MCP server and a library. Uses your installed Chrome, returns clean Markdown within a token budget. Zero dependencies.",
+  "author": "Shubham Prakash",
+  "license": "MIT",
+  "homepage": "https://github.com/shubhamcodess/tiny-browse#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/shubhamcodess/tiny-browse.git"
+  },
+  "bugs": {
+    "url": "https://github.com/shubhamcodess/tiny-browse/issues"
+  },
   "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./package.json": "./package.json"
+  },
   "bin": {
     "tiny-browse": "dist/cli.js"
   },
   "files": [
-    "dist"
+    "dist",
+    "LICENSE",
+    "README.md",
+    "CHANGELOG.md"
   ],
   "engines": {
     "node": ">=22"
   },
   "scripts": {
-    "build": "tsup",
+    "build": "node -e \"require('fs').rmSync('dist',{recursive:true,force:true})\" && tsup",
     "dev": "tsup --watch",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
@@ -29,12 +51,26 @@
     "cdp",
     "markdown",
     "llm",
-    "agent"
+    "agent",
+    "mcp-server",
+    "web-scraping",
+    "web-fetch",
+    "readability",
+    "claude",
+    "copilot",
+    "cursor"
   ],
   "devDependencies": {
     "@types/node": "^22.10.0",
+    "@vitest/coverage-v8": "^3.2.7",
+    "gpt-tokenizer": "^4.1.0",
     "tsup": "^8.3.5",
     "typescript": "^5.7.2",
     "vitest": "^3.0.0"
+  },
+  "sideEffects": false,
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
   }
 }

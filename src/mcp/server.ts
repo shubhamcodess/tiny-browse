@@ -1,5 +1,6 @@
 import type { Config } from "../config.js";
-import { NotImplementedError, type Engine, type EngineResult } from "../core/engine.js";
+import { NotImplementedError, ToolInputError, type Engine, type EngineResult } from "../core/engine.js";
+import { SearchUnavailableError } from "../search/search.js";
 import { log } from "../util/log.js";
 import { VERSION } from "../version.js";
 import { ErrorCode, JsonRpcEndpoint, RpcError } from "./jsonrpc.js";
@@ -21,6 +22,8 @@ export interface McpServerOptions {
   engine: Engine;
   config: Config;
   send: (msg: unknown) => void;
+  /** Version already agreed (HTTP sessions re-create the server per request). */
+  protocolVersion?: string;
 }
 
 export interface McpServer {
@@ -34,11 +37,11 @@ type ContentBlock =
   | { type: "text"; text: string }
   | { type: "image"; data: string; mimeType: string };
 
-export function createMcpServer({ engine, config, send }: McpServerOptions): McpServer {
+export function createMcpServer({ engine, config, send, protocolVersion: agreed }: McpServerOptions): McpServer {
   const rpc = new JsonRpcEndpoint(send);
   const tools = buildTools(engine, config);
   const byName = new Map(tools.map((t) => [t.name, t]));
-  let protocolVersion: string | undefined;
+  let protocolVersion: string | undefined = agreed;
 
   rpc.method("initialize", (params) => {
     const p = asObject(params);
@@ -86,7 +89,7 @@ export function createMcpServer({ engine, config, send }: McpServerOptions): Mcp
       const result = await tool.run(args as Record<string, unknown>, { signal });
       return toolResult(result, supportsStructured(protocolVersion));
     } catch (err) {
-      if (err instanceof NotImplementedError) return toolError(err.message);
+      if (err instanceof NotImplementedError || err instanceof SearchUnavailableError || err instanceof ToolInputError) return toolError(err.message);
       // Cancelled by the client: the endpoint drops this response anyway.
       if (ctx.signal.aborted) return toolError(`${tool.name} was cancelled`);
       if (signal.aborted) {
