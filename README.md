@@ -1,6 +1,6 @@
-<img src="assets/logo-256.png" alt="tiny-browse logo" width="120" align="right">
-
 # tiny-browse
+
+<img src="assets/logo-256.png" alt="tiny-browse logo" width="120" align="right">
 
 ### Give any AI agent the web, in 126 kB.
 
