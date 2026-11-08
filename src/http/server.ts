@@ -13,6 +13,7 @@ import type { Config } from "../config.js";
 import { NotImplementedError, ToolInputError, type Engine } from "../core/engine.js";
 import { createMcpServer, SUPPORTED_PROTOCOL_VERSIONS } from "../mcp/server.js";
 import { validate } from "../mcp/schema.js";
+import { toTinyBrowseError } from "../errors.js";
 import { buildTools } from "../mcp/tools.js";
 import { SearchUnavailableError } from "../search/search.js";
 import { log } from "../util/log.js";
@@ -78,7 +79,9 @@ export async function serveHttp(engine: Engine, config: Config, opts: HttpServeO
         return json(res, 200, { markdown: r.markdown, data: r.data, images: r.images ?? [] });
       } catch (err) {
         const expected = err instanceof ToolInputError || err instanceof SearchUnavailableError || err instanceof NotImplementedError;
-        return json(res, expected ? 422 : 500, { error: (err as Error).message });
+        // `code` lets library clients (useServer: "auto") rethrow the same TinyBrowseError.
+        const e = toTinyBrowseError(err, { aborted: ac.signal.aborted });
+        return json(res, expected ? 422 : 500, { error: e.message, code: e.code });
       }
     }
     return json(res, 404, { error: "not found: use POST /mcp, POST /search, POST /fetch or GET /health" });

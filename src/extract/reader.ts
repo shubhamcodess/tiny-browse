@@ -18,10 +18,12 @@ import type { TierHints, Tier } from "../fetch/hints.js";
 import { decodeBody, httpGet, HttpFetchError } from "../fetch/http.js";
 import { log } from "../util/log.js";
 import { extractExpression } from "./inpage.js";
+import { extractLite } from "./lite.js";
 import { quality } from "./markdown.js";
 import type { Extracted } from "./types.js";
 
-export type RenderMode = "auto" | "http" | "browser";
+/** "lite" = plain HTTP and the no-Chrome extractor (browser.mode "off"). */
+export type RenderMode = "auto" | "http" | "browser" | "lite";
 
 export interface ReadOptions {
   timeoutMs: number;
@@ -89,6 +91,7 @@ export async function readUrl(
   const host = hostOf(url);
   const hinted = opts.hints?.get(host);
   const mode: RenderMode = opts.render !== "auto" ? opts.render : hinted === "browser" ? "browser" : "auto";
+  if (opts.render === "lite") return readLite(url, opts);
   if (mode === "browser") return readWithBrowser(browser, url, opts);
   if (mode === "http") return readWithHttp(browser, url, opts);
 
@@ -223,6 +226,32 @@ async function renderOffline(browser: Browser, url: string, html: string, opts: 
     await page.goto(url, { waitUntil: "load", timeoutMs: Math.min(2500, opts.timeoutMs), signal: opts.signal });
     return page.evaluate<Extracted>(extractExpression({ minImageSize: 64 }), 20_000);
   });
+}
+
+// ---------------------------------------------------------------- lite tier (no Chrome)
+
+export async function readLite(url: string, opts: ReadOptions): Promise<ReadResult> {
+  const start = performance.now();
+  let res;
+  try {
+    res = await httpGet(url, { timeoutMs: opts.timeoutMs, maxBytes: opts.maxBytes, allowPrivate: opts.allowPrivate, allowHosts: opts.allowHosts, signal: opts.signal });
+  } catch (err) {
+    if (opts.signal?.aborted) throw err;
+    return failure(url, "http", (err as Error).message, start, false);
+  }
+  const type = res.contentType;
+  if (type === "application/pdf") return failure(res.url, "http", "PDF documents are not supported yet (planned for tiny-browse 0.2)", start, false, res.status);
+  if (type in TEXT_TYPES && res.status < 400) {
+    return { ok: true, tier: "http", kind: "text", url: res.url, status: res.status, text: decodeBody(res.body, type), lang: TEXT_TYPES[type]!, title: res.url, quality: 1, ms: since(start) };
+  }
+  if (!HTML_TYPES.has(type)) return failure(res.url, "http", `cannot read ${type} content`, start, false, res.status);
+  const html = decodeBody(res.body, type);
+  if (res.status >= 400) {
+    const botCheck = [403, 429, 503].includes(res.status) && BOT_CHECK_TEXT.test(html.slice(0, 20_000));
+    return failure(res.url, "http", botCheck ? `the site blocked automated access with a bot check (HTTP ${res.status})` : `HTTP ${res.status}`, start, false, res.status);
+  }
+  const doc = extractLite(html, res.url, { minImageSize: 64 });
+  return { ok: true, tier: "http", kind: "html", url: res.url, status: res.status, doc, quality: quality(doc, opts.expectedTitle), ms: since(start) };
 }
 
 // ---------------------------------------------------------------- browser tier

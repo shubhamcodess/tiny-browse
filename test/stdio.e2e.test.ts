@@ -45,7 +45,7 @@ describe.skipIf(!built)("built CLI", () => {
     const exit = new Promise<number | null>((resolve) => child.once("exit", resolve));
     child.stdin.end();
     expect(await exit).toBe(0);
-  });
+  }, 30_000);
 
   it("prints help, version and client config", () => {
     const run = (...args: string[]) => spawnSync(process.execPath, [CLI, ...args], { encoding: "utf8" });

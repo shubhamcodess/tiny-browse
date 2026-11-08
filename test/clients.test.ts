@@ -4,12 +4,12 @@ import { clientSnippets, serverCommand } from "../src/clients.js";
 describe("client snippets", () => {
   it("uses npx when running from an installed package", () => {
     const cmd = serverCommand("/x/node_modules/tiny-browse/dist/cli.js", "/usr/bin/node");
-    expect(cmd).toEqual({ command: "npx", args: ["-y", "tiny-browse"] });
+    expect(cmd).toEqual({ command: "npx", args: ["-y", "tiny-browse", "mcp"] });
   });
 
   it("points at the exact build when running from a checkout", () => {
     const cmd = serverCommand("/src/tiny-browse/dist/cli.js", "/usr/bin/node");
-    expect(cmd).toEqual({ command: "/usr/bin/node", args: ["/src/tiny-browse/dist/cli.js"] });
+    expect(cmd).toEqual({ command: "/usr/bin/node", args: ["/src/tiny-browse/dist/cli.js", "mcp"] });
   });
 
   it("quotes paths with spaces for the shell and TOML", () => {

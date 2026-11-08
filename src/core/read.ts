@@ -111,7 +111,7 @@ export async function readMany(browser: Browser, config: Config, reqs: ReadReque
           images: opts.images,
           signal: opts.signal,
           expectedTitle: req.title,
-          render: opts.render,
+          render: config.browser.mode === "off" ? "lite" : opts.render,
           hints: opts.hints,
         });
         opts.cache?.set(key, r);

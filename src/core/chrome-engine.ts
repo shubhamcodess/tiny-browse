@@ -34,7 +34,7 @@ export class ChromeEngine implements Engine {
   }
 
   start(): void {
-    if (!this.config.browser.eager) return;
+    if (!this.config.browser.eager || this.config.browser.mode === "off") return;
     // Background: never delays the MCP handshake. Failures are retried on first use.
     this.browser.warm().catch((err: Error) => log.warn(`could not start Chrome yet: ${err.message}`));
   }

@@ -10,8 +10,11 @@ export interface Config {
   browser: {
     /** Explicit browser executable. Empty = auto-discover. */
     path: string;
-    /** `launch` our own Chrome, or `attach` to one at `cdpUrl`. */
-    mode: "launch" | "attach";
+    /**
+     * `launch` our own Chrome, `attach` to one at `cdpUrl`, or `off`: no Chrome
+     * at all (plain HTTP search and reading; faster, lower coverage).
+     */
+    mode: "launch" | "attach" | "off";
     cdpUrl: string;
     headless: boolean;
     /** Launch at server start (Chrome-first). */
@@ -237,7 +240,7 @@ export function validateConfig(c: Config): void {
   const fail = (msg: string) => {
     throw new ConfigError(msg);
   };
-  if (!["launch", "attach"].includes(c.browser.mode)) fail(`browser.mode must be "launch" or "attach"`);
+  if (!["launch", "attach", "off"].includes(c.browser.mode)) fail(`browser.mode must be "launch", "attach" or "off"`);
   if (c.browser.mode === "attach" && !c.browser.cdpUrl) fail("browser.mode is \"attach\" but browser.cdpUrl is empty");
   if (!["fallback", "show"].includes(c.browser.onChallenge)) fail(`browser.onChallenge must be "fallback" or "show"`);
   parseProviders(c.search.providers.join(","));

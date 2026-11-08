@@ -13,7 +13,7 @@ export interface ClientSnippet {
   text: string;
 }
 
-const PUBLISHED: ServerCommand = { command: "npx", args: ["-y", "tiny-browse"] };
+const PUBLISHED: ServerCommand = { command: "npx", args: ["-y", "tiny-browse", "mcp"] };
 
 /**
  * How an agent should launch this tiny-browse. When it runs from an installed
@@ -29,7 +29,7 @@ export function serverCommand(scriptPath = process.argv[1], nodePath = process.e
     // keep the path as given
   }
   if (real.includes(`${sep}node_modules${sep}tiny-browse${sep}`)) return PUBLISHED;
-  return { command: nodePath, args: [real] };
+  return { command: nodePath, args: [real, "mcp"] };
 }
 
 const json = (v: unknown) => JSON.stringify(v, null, 2);

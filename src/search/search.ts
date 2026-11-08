@@ -11,6 +11,7 @@ import { log } from "../util/log.js";
 import { showChallenge } from "./challenge.js";
 import { PROVIDERS, type ProviderDef } from "./providers.js";
 import { limitsFrom, RateBudget } from "./budget.js";
+import { httpReadPage, supportsHttpSearch } from "./http-search.js";
 import { redirectResolver } from "./redirects.js";
 import { readSerp } from "./serp.js";
 import type { ProviderState } from "./state.js";
@@ -65,13 +66,18 @@ export class SearchService {
     readPage?: ReadPage,
     budget?: RateBudget,
   ) {
-    this.readPage = readPage ?? ((p, q, url, o, s) => this.readWithBrowser(p, q, url, o, s));
+    this.readPage =
+      readPage ??
+      (config.browser.mode === "off"
+        ? httpReadPage({ timeoutMs: config.fetch.timeoutMs, maxBytes: config.fetch.maxBytes })
+        : (p, q, url, o, s) => this.readWithBrowser(p, q, url, o, s));
     this.budget = budget ?? new RateBudget(config.cache.enabled ? config.cache.dir : undefined, limitsFrom(config.search.limits));
     this.disk = new DiskCache<SearchOutcome>(config.cache.enabled ? join(config.cache.dir, "serp") : undefined, config.cache.serpTtlMs, 300);
   }
 
   async search(query: string, opts: SearchOptions, signal: AbortSignal): Promise<SearchOutcome> {
-    const key = JSON.stringify([query.toLowerCase(), opts.site ?? "", opts.freshness, opts.maxResults]);
+    const noChrome = this.config.browser.mode === "off";
+    const key = JSON.stringify([query.toLowerCase(), opts.site ?? "", opts.freshness, opts.maxResults, noChrome ? "http" : "chrome"]);
     const hit = this.cache.get(key);
     if (hit && Date.now() - hit.at < this.config.cache.serpTtlMs) return { ...hit.outcome, cached: true };
     const shared = this.disk.get(key);
@@ -81,6 +87,10 @@ export class SearchService {
     let offTopic: SerpPage | undefined;
     for (const name of this.config.search.providers) {
       if (signal.aborted) break;
+      if (noChrome && !supportsHttpSearch(name)) {
+        attempts.push({ provider: name, status: "skipped", ms: 0, note: "needs Chrome (browser.mode is off)" });
+        continue;
+      }
       const cooling = this.state.coolingDown(name);
       if (cooling) {
         const mins = Math.ceil((cooling.until - Date.now()) / 60_000);

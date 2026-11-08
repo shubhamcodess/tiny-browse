@@ -3,16 +3,20 @@ import { defineConfig } from "tsup";
 
 const pkg = JSON.parse(readFileSync("./package.json", "utf8")) as { version: string };
 
-export default defineConfig({
-  entry: { cli: "src/cli.ts" },
-  format: ["esm"],
-  platform: "node",
+const shared = {
+  format: ["esm"] as ("esm")[],
+  platform: "node" as const,
   target: "node22",
   bundle: true,
   splitting: false,
   sourcemap: false,
-  clean: true,
   minify: false,
-  banner: { js: "#!/usr/bin/env node" },
   define: { __TINY_BROWSE_VERSION__: JSON.stringify(pkg.version) },
-});
+};
+
+export default defineConfig([
+  // The command-line tool / MCP server.
+  { ...shared, entry: { cli: "src/cli.ts" }, clean: false, banner: { js: "#!/usr/bin/env node" } },
+  // The library: `import { webSearch } from "tiny-browse"`, with type declarations.
+  { ...shared, entry: { index: "src/index.ts" }, clean: false, dts: true },
+]);

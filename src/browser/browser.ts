@@ -11,7 +11,7 @@ import type { Config } from "../config.js";
 import { log } from "../util/log.js";
 import { CdpConnection } from "./cdp.js";
 import { findRunningOnProfile, launchChrome, resolveCdpUrl } from "./chrome.js";
-import { resolveBrowser } from "./discover.js";
+import { BrowserNotFoundError, resolveBrowser } from "./discover.js";
 import { Page } from "./page.js";
 
 /** How we got hold of Chrome. */
@@ -73,6 +73,9 @@ export class Browser {
 
   /** Connect (starting Chrome if needed). Concurrent callers share one attempt. */
   ensure(): Promise<BrowserSession> {
+    if (this.cfg.mode === "off") {
+      return Promise.reject(new BrowserNotFoundError('Chrome is turned off (browser.mode "off"); this needs Chrome'));
+    }
     if (!this.session) {
       const attempt = this.open();
       this.session = attempt;
@@ -296,16 +299,38 @@ export class Browser {
 
 const children = new Set<ChildProcess>();
 let exitHookInstalled = false;
+const SIGNALS = ["SIGINT", "SIGTERM", "SIGHUP"] as const;
 
-/** Make sure a Chrome we started never outlives this process. */
+/**
+ * Make sure a Chrome we started never outlives this process:
+ * - on normal exit (the 'exit' event), kill it;
+ * - on Ctrl+C / kill when the app has no signal handler of its own (so Node
+ *   would die without an 'exit' event), kill it, then let the signal take
+ *   its usual effect. If the app handles the signal, we leave it to the app's
+ *   own shutdown (which closes Chrome gracefully), with 'exit' as backstop.
+ * Signal handlers are only installed while a Chrome we started is running.
+ */
 function killOnExit(child: ChildProcess): void {
   children.add(child);
-  child.once("exit", () => children.delete(child));
+  child.once("exit", () => {
+    children.delete(child);
+    if (!children.size) for (const sig of SIGNALS) process.off(sig, onSignal);
+  });
+  if (children.size === 1) for (const sig of SIGNALS) process.on(sig, onSignal);
   if (exitHookInstalled) return;
   exitHookInstalled = true;
-  process.once("exit", () => {
-    for (const c of children) c.kill("SIGKILL");
-  });
+  process.once("exit", killAll);
+}
+
+function killAll(): void {
+  for (const c of children) c.kill("SIGKILL");
+}
+
+function onSignal(sig: NodeJS.Signals): void {
+  if (process.listenerCount(sig) > 1) return; // the app handles it
+  killAll();
+  for (const s of SIGNALS) process.off(s, onSignal);
+  process.kill(process.pid, sig);
 }
 
 function waitForExit(child: ChildProcess, ms: number): Promise<void> {
