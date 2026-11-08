@@ -1,5 +1,3 @@
-<div align="center">
-
 # tiny-browse
 
 **Web search and page reading for AI agents.**<br>
@@ -8,13 +6,11 @@ An MCP server for any agent, and a zero-dependency Node.js library.
 
 [![Node](https://img.shields.io/badge/node-%3E%3D22-339933?style=flat-square&logo=nodedotjs&logoColor=white)](https://nodejs.org)
 [![CI](https://img.shields.io/github/actions/workflow/status/shubhamcodess/tiny-browse/ci.yml?branch=main&style=flat-square&label=CI&logo=githubactions&logoColor=white)](https://github.com/shubhamcodess/tiny-browse/actions/workflows/ci.yml)
-[![License: MIT](https://img.shields.io/badge/license-MIT-blue?style=flat-square)](https://github.com/shubhamcodess/tiny-browse/blob/main/LICENSE)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue?style=flat-square)](LICENSE)
 
 [![npm weekly downloads](https://img.shields.io/npm/dw/@shubhamcodess/tiny-browse?style=flat-square&logo=npm&label=weekly)](https://www.npmjs.com/package/@shubhamcodess/tiny-browse)
 [![npm monthly downloads](https://img.shields.io/npm/dm/@shubhamcodess/tiny-browse?style=flat-square&logo=npm&label=monthly)](https://www.npmjs.com/package/@shubhamcodess/tiny-browse)
 [![npm total downloads](https://img.shields.io/npm/d18m/@shubhamcodess/tiny-browse?style=flat-square&logo=npm&label=total)](https://www.npmjs.com/package/@shubhamcodess/tiny-browse)
-
-</div>
 
 - **Any agent, any model.** MCP over stdio or HTTP, plus a JSON API. No LLM inside.
 - **No bundled browser.** Uses your installed Chrome, Edge, Brave or Chromium. About 130 kB, zero runtime dependencies.
@@ -87,7 +83,7 @@ claude mcp add tiny-browse -- npx -y @shubhamcodess/tiny-browse mcp
 
 `tiny-browse config <client>` prints the setup for `claude-code`, `claude-desktop`, `cursor`, `vscode`, `codex` or `generic`. To share one warm Chrome between several agents, run `tiny-browse serve --http 7777` and connect to `http://127.0.0.1:7777/mcp`.
 
-The agent gets two tools: **`web_search`** (search and read the top results) and **`web_fetch`** (read URLs, optionally narrowed with `focus` or continued with `cursor`). Parameters: [TOOLS.md](https://github.com/shubhamcodess/tiny-browse/blob/main/docs/TOOLS.md).
+The agent gets two tools: **`web_search`** (search and read the top results) and **`web_fetch`** (read URLs, optionally narrowed with `focus` or continued with `cursor`). Parameters: [TOOLS.md](docs/TOOLS.md).
 
 ## Use as a dependency
 
@@ -105,7 +101,7 @@ const docs = await webFetch({ urls: ["https://go.dev/doc/effective_go"], focus: 
 console.log(docs.pages[0].markdown);
 ```
 
-Each call starts what it needs and shuts it down before returning, so short-lived CLIs exit straight away. Use `createClient()` to reuse one Chrome across calls, `mode: "http"` to skip Chrome entirely, and `TinyBrowseError.code` to handle failures. Full API: [LIBRARY.md](https://github.com/shubhamcodess/tiny-browse/blob/main/docs/LIBRARY.md).
+Each call starts what it needs and shuts it down before returning, so short-lived CLIs exit straight away. Use `createClient()` to reuse one Chrome across calls, `mode: "http"` to skip Chrome entirely, and `TinyBrowseError.code` to handle failures. Full API: [LIBRARY.md](docs/LIBRARY.md).
 
 ## How it works
 
@@ -135,15 +131,15 @@ Each call starts what it needs and shuts it down before returning, so short-live
 
 | | |
 |---|---|
-| [Configuration](https://github.com/shubhamcodess/tiny-browse/blob/main/docs/CONFIGURATION.md) | Settings, rate limits, environment variables, flags |
-| [MCP tools and server](https://github.com/shubhamcodess/tiny-browse/blob/main/docs/TOOLS.md) | Tool parameters, output, HTTP server |
-| [Library API](https://github.com/shubhamcodess/tiny-browse/blob/main/docs/LIBRARY.md) | Functions, options, errors, lifecycle |
-| [Design notes](https://github.com/shubhamcodess/tiny-browse/blob/main/docs/DESIGN.md) | Architecture and findings |
-| [Contributing](https://github.com/shubhamcodess/tiny-browse/blob/main/CONTRIBUTING.md) | Development setup and releases |
-| [Security](https://github.com/shubhamcodess/tiny-browse/blob/main/SECURITY.md) | Reporting vulnerabilities, threat model |
-| [Code of Conduct](https://github.com/shubhamcodess/tiny-browse/blob/main/CODE_OF_CONDUCT.md) | |
-| [Changelog](https://github.com/shubhamcodess/tiny-browse/blob/main/CHANGELOG.md) | |
+| [Configuration](docs/CONFIGURATION.md) | Settings, rate limits, environment variables, flags |
+| [MCP tools and server](docs/TOOLS.md) | Tool parameters, output, HTTP server |
+| [Library API](docs/LIBRARY.md) | Functions, options, errors, lifecycle |
+| [Design notes](docs/DESIGN.md) | Architecture and findings |
+| [Contributing](CONTRIBUTING.md) | Development setup and releases |
+| [Security](SECURITY.md) | Reporting vulnerabilities, threat model |
+| [Code of Conduct](CODE_OF_CONDUCT.md) | |
+| [Changelog](CHANGELOG.md) | |
 
 ## License
 
-[MIT](https://github.com/shubhamcodess/tiny-browse/blob/main/LICENSE) © Shubham Prakash
+[MIT](LICENSE) © Shubham Prakash
