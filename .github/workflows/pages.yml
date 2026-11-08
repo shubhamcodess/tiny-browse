@@ -42,7 +42,7 @@ jobs:
             echo "has_site=false" >> "$GITHUB_OUTPUT"
             echo "::notice::No site yet (site/index.html or site/package.json with a build script): nothing to deploy."
           fi
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         if: steps.detect.outputs.kind == 'build'
         with:
           node-version: 22
