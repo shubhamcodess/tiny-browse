@@ -41,7 +41,9 @@ beforeAll(async () => {
   const addr = server.address();
   base = `http://127.0.0.1:${typeof addr === "object" && addr ? addr.port : 0}`;
   browser = new Browser({ ...defaultConfig({}).browser, profileDir: mkdtempSync(join(tmpdir(), "tiny-browse-serp-")) });
-});
+  // Start Chrome here, not in the first test: a cold start takes seconds on CI runners.
+  if (hasBrowser) await browser.warm();
+}, 60_000);
 
 afterAll(async () => {
   await browser?.close();
@@ -71,7 +73,7 @@ describe.skipIf(!hasBrowser)("SERP fixtures (real Chrome)", () => {
     expect(r.results.every((x) => x.foundBy.length === 3)).toBe(true);
     expect(r.results[0]).toMatchObject({ title: "Rust Programming Language", url: "https://rust-lang.org/" });
     expect(r.results[0]!.snippet).toMatch(/blazingly fast/);
-  }, 30_000);
+  }, 60_000);
 
   it("reads a real Google page whose result links are opaque /goto redirects", async () => {
     const r = await read("google-results.html", PROVIDERS.google, "typescript satisfies operator");
@@ -90,7 +92,7 @@ describe.skipIf(!hasBrowser)("SERP fixtures (real Chrome)", () => {
     // Never a bare homepage or a Google link standing in for a deep result.
     expect(urls.every((u) => !/google\./.test(new URL(u).hostname) && new URL(u).pathname !== "/")).toBe(true);
     expect(r.results.every((x) => x.foundBy.length === 3)).toBe(true);
-  }, 30_000);
+  }, 60_000);
 
   it("follows the opaque links the page gives no destination for", async () => {
     const asked: string[] = [];
@@ -102,7 +104,7 @@ describe.skipIf(!hasBrowser)("SERP fixtures (real Chrome)", () => {
     expect(asked.every((h) => h.startsWith("https://www.google.com/goto?"))).toBe(true);
     expect(r.results.filter((x) => x.url.startsWith("https://followed.example/")).length).toBe(asked.length);
     expect(r.results.length).toBe(9);
-  }, 30_000);
+  }, 60_000);
 
   it("reads a Google-shaped page and skips ads, PAA, carousel, sitelinks, sidebar and footer", async () => {
     const r = await read("google-like.html", PROVIDERS.google, "model context protocol");
@@ -116,7 +118,7 @@ describe.skipIf(!hasBrowser)("SERP fixtures (real Chrome)", () => {
     ]);
     expect(r.results[1]!.snippet).toMatch(/open standard/);
     expect(r.results[0]!.snippet).not.toMatch(/›/);
-  }, 30_000);
+  }, 60_000);
 
   it("survives a redesign with no headings and new markup (visual strategy alone)", async () => {
     const r = await read("google-redesign.html", PROVIDERS.google, "model context protocol");
@@ -130,7 +132,7 @@ describe.skipIf(!hasBrowser)("SERP fixtures (real Chrome)", () => {
     ]);
     expect(r.results[1]!.url).toBe("https://en.wikipedia.org/wiki/Model_Context_Protocol");
     expect(r.results[0]!.snippet).toMatch(/standardizes how applications/);
-  }, 30_000);
+  }, 60_000);
 
   it.each([
     ["google-sorry.html", PROVIDERS.google],
@@ -140,5 +142,5 @@ describe.skipIf(!hasBrowser)("SERP fixtures (real Chrome)", () => {
     const r = await read(file, provider);
     expect(r.status).toBe("challenge");
     expect(r.results).toEqual([]);
-  }, 30_000);
+  }, 60_000);
 });
