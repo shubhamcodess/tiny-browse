@@ -12,3 +12,9 @@ updates:
     groups:
       dev-dependencies:
         dependency-type: development
+    ignore:
+      # Major upgrades of the build toolchain need manual work (tsup 9 + TypeScript 7 can't emit .d.ts yet).
+      - dependency-name: typescript
+        update-types: ["version-update:semver-major"]
+      - dependency-name: tsup
+        update-types: ["version-update:semver-major"]
