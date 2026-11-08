@@ -1,8 +1,8 @@
 # tiny-browse
 
-**Web search and page reading for AI agents.**<br>
-Searches Google in the Chrome you already have, reads the best results and returns clean Markdown that fits your token budget.<br>
-An MCP server for any agent, and a zero-dependency Node.js library.
+### Give any AI agent the web, in 126 kB.
+
+tiny-browse searches **Google in the Chrome you already have**, reads the best results and returns **clean Markdown** that fits a **hard token budget**. One **zero-dependency** package: an **MCP server** for any agent and a **Node.js library** for your own code. No bundled browser, no API keys.
 
 [![Node](https://img.shields.io/badge/node-%3E%3D22-339933?style=flat-square&logo=nodedotjs&logoColor=white)](https://nodejs.org)
 [![CI](https://img.shields.io/github/actions/workflow/status/shubhamcodess/tiny-browse/ci.yml?branch=main&style=flat-square&label=CI&logo=githubactions&logoColor=white)](https://github.com/shubhamcodess/tiny-browse/actions/workflows/ci.yml)
@@ -13,7 +13,7 @@ An MCP server for any agent, and a zero-dependency Node.js library.
 [![npm total downloads](https://img.shields.io/npm/d18m/@shubhamcodess/tiny-browse?style=flat-square&logo=npm&label=total)](https://www.npmjs.com/package/@shubhamcodess/tiny-browse)
 
 - **Any agent, any model.** MCP over stdio or HTTP, plus a JSON API. No LLM inside.
-- **No bundled browser.** Uses your installed Chrome, Edge, Brave or Chromium. About 130 kB, zero runtime dependencies.
+- **Tiny on disk.** A 126 kB download with zero runtime dependencies, using your installed Chrome, Edge, Brave or Chromium instead of downloading a browser of its own.
 - **Answers, not HTML.** Main content only, with headings, code, tables and lists kept, inside a hard `max_tokens` limit.
 - **Careful by default.** Strict search rate limits, no access to private networks, pages read without your cookies.
 
