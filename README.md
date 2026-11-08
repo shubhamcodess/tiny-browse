@@ -6,8 +6,9 @@ already installed on your computer (falling back to DuckDuckGo or Bing), reads
 the best results, and returns clean, heading-structured Markdown. No bundled
 browser, no LLM inside.
 
-> **Status: early development (milestone M0).** The MCP server, CLI and config
-> work; the `web_search` and `web_fetch` tools are placeholders that report
+> **Status: early development (milestone M1).** The MCP server, CLI, config and
+> the Chrome connection work (`tiny-browse doctor`, `tiny-browse open <url>`,
+> `tiny-browse login`). The `web_search` and `web_fetch` tools still report
 > "not implemented yet". See [docs/DESIGN.md](docs/DESIGN.md) for the plan.
 
 ## Use with an agent
@@ -44,7 +45,8 @@ tiny-browse start               MCP server on stdio (also: no command)
 tiny-browse search <query>      print Markdown results
 tiny-browse fetch <url...>      print a page as Markdown
 tiny-browse login [--sign-in]   accept Google consent in the tiny-browse Chrome profile
-tiny-browse doctor              environment checks
+tiny-browse doctor              environment checks, finds and test-starts Chrome
+tiny-browse open <url>          debug: load a URL in headless Chrome
 tiny-browse config <client>     MCP setup snippet
 ```
 

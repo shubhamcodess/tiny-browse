@@ -4,7 +4,11 @@ import { dirname, join } from "node:path";
 import { CLIENT_NAMES, clientSnippets, formatSnippet, setupGuide } from "./clients.js";
 import { ConfigError, loadConfig, parseProviders, type Config, type ConfigInput } from "./config.js";
 import { configDir } from "./util/paths.js";
-import { NotImplementedError, StubEngine, type Engine } from "./core/engine.js";
+import { Browser } from "./browser/browser.js";
+import { discoverBrowsers, resolveBrowser } from "./browser/discover.js";
+import { login } from "./browser/login.js";
+import { ChromeEngine } from "./core/chrome-engine.js";
+import { NotImplementedError, type Engine } from "./core/engine.js";
 import { serveStdio } from "./mcp/stdio.js";
 import { isHttpUrl } from "./mcp/schema.js";
 import { LOG_LEVELS, log, setLogLevel, type LogLevel } from "./util/log.js";
@@ -23,7 +27,8 @@ Usage:
   tiny-browse fetch <url...>      Read pages and print Markdown (or --json)
   tiny-browse login [--sign-in]   Open Chrome on the tiny-browse profile to accept
                                   Google's consent screen (and optionally sign in)
-  tiny-browse doctor              Show version, config and environment checks
+  tiny-browse doctor              Show version and config; find and test Chrome
+  tiny-browse open <url>          Debug: load a URL in headless Chrome, show status/timing
   tiny-browse config <client>     Print MCP setup for a client:
                                   ${CLIENT_NAMES.join(", ")}
 
@@ -90,9 +95,8 @@ function flagsToConfig(v: Values): ConfigInput {
   return out;
 }
 
-function createEngine(_config: Config): Engine {
-  // M1+ replaces this with the real Chrome-backed engine.
-  return new StubEngine();
+function createEngine(config: Config): Engine {
+  return new ChromeEngine(config);
 }
 
 export async function main(argv: string[]): Promise<number> {
@@ -141,12 +145,12 @@ export async function main(argv: string[]): Promise<number> {
     case "fetch":
       return runFetch(rest, config, values.json ?? false);
     case "login":
-      throw new NotImplementedError(
-        `login is not implemented yet. It will open Chrome on the profile at ${config.browser.profileDir}` +
-          (values["sign-in"] ? " and let you sign in to Google." : " so you can accept Google's consent screen."),
-      );
+      await login(config, { signIn: values["sign-in"] ?? false });
+      return 0;
     case "doctor":
       return runDoctor(config, files, values.json ?? false);
+    case "open":
+      return runOpen(rest, config, values.json ?? false);
     default:
       throw new UsageError(`unknown command "${command}". Run tiny-browse --help.`);
   }
@@ -197,7 +201,58 @@ async function runFetch(urls: string[], config: Config, json: boolean): Promise<
   }
 }
 
-function runDoctor(config: Config, files: string[], json: boolean): number {
+interface Check {
+  name: string;
+  ok: boolean | null;
+  note?: string;
+}
+
+/** Start (or reuse) Chrome and load a tiny page, timing each step. */
+async function browserCheck(config: Config): Promise<Check> {
+  const browser = new Browser(config.browser);
+  try {
+    const s = await browser.ensure();
+    const nav = await browser.withPage(async (page) => {
+      const res = await page.goto("data:text/html,<title>tiny-browse ok</title>", { timeoutMs: 10_000 });
+      return { ...res, title: await page.title() };
+    });
+    const ok = nav.title === "tiny-browse ok";
+    const how = s.kind === "launched" ? "started" : s.kind === "shared" ? "reused running" : "attached to";
+    return {
+      name: "chrome session",
+      ok,
+      note: `${how} ${s.product} in ${s.startMs} ms, page load ${Math.round(nav.ms)} ms`,
+    };
+  } catch (err) {
+    return { name: "chrome session", ok: false, note: (err as Error).message.split("\n")[0] };
+  } finally {
+    await browser.close();
+  }
+}
+
+function discoveryCheck(config: Config): Check {
+  if (config.browser.mode === "attach") return { name: "browser", ok: null, note: `attach mode: ${config.browser.cdpUrl}` };
+  try {
+    const chosen = resolveBrowser(config.browser.path);
+    const others = discoverBrowsers().filter((b) => b.path !== chosen.path).map((b) => b.name);
+    return {
+      name: "browser",
+      ok: true,
+      note: `${chosen.name} (${chosen.path})${others.length ? `; also found: ${others.join(", ")}` : ""}`,
+    };
+  } catch (err) {
+    return { name: "browser", ok: false, note: (err as Error).message };
+  }
+}
+
+async function runDoctor(config: Config, files: string[], json: boolean): Promise<number> {
+  const discovery = discoveryCheck(config);
+  const checks: Check[] = [
+    { name: "node >= 22", ok: Number(process.versions.node.split(".")[0]) >= 22 },
+    discovery,
+    discovery.ok === false ? { name: "chrome session", ok: null, note: "skipped" } : await browserCheck(config),
+    { name: "search providers", ok: null, note: "not implemented yet (M2)" },
+  ];
   const report = {
     version: VERSION,
     node: process.version,
@@ -205,11 +260,7 @@ function runDoctor(config: Config, files: string[], json: boolean): number {
     configFiles: files,
     profileDir: config.browser.profileDir,
     cacheDir: config.cache.dir,
-    checks: [
-      { name: "node >= 22", ok: Number(process.versions.node.split(".")[0]) >= 22 },
-      { name: "browser discovery", ok: null, note: "not implemented yet (M1)" },
-      { name: "search providers", ok: null, note: "not implemented yet (M2)" },
-    ],
+    checks,
     config,
   };
   if (json) {
@@ -226,10 +277,35 @@ function runDoctor(config: Config, files: string[], json: boolean): number {
     `search order: ${config.search.providers.join(" -> ")}`,
     `browser: ${config.browser.mode === "attach" ? `attach to ${config.browser.cdpUrl}` : `launch ${config.browser.path || "(auto-detect)"}`}, ${config.browser.headless ? "headless" : "headful"}`,
     "",
-    ...report.checks.map((c) => `[${mark(c.ok)}] ${c.name}${"note" in c ? ` - ${c.note}` : ""}`),
+    ...report.checks.map((c) => `[${mark(c.ok)}] ${c.name}${c.note ? ` - ${c.note}` : ""}`),
   ];
   process.stdout.write(`${lines.join("\n")}\n`);
   return report.checks.some((c) => c.ok === false) ? 1 : 0;
+}
+
+/** Debug aid: load a URL in headless Chrome and report what happened. */
+async function runOpen(args: string[], config: Config, json: boolean): Promise<number> {
+  const [url] = args;
+  if (!url || !isHttpUrl(url)) throw new UsageError("open needs one absolute http(s) URL");
+  const browser = new Browser(config.browser);
+  try {
+    const s = await browser.ensure();
+    const info = await browser.withPage(async (page) => {
+      const nav = await page.goto(url, { timeoutMs: config.fetch.timeoutMs * 2 });
+      const [title, html] = await Promise.all([page.title(), page.html()]);
+      return { ...nav, ms: Math.round(nav.ms), title, htmlBytes: Buffer.byteLength(html) };
+    });
+    const out = { browser: s.product, session: s.kind, ...info };
+    process.stdout.write(
+      json
+        ? `${JSON.stringify(out, null, 2)}\n`
+        : `${out.title || "(no title)"}\n${out.url}\nstatus ${out.status ?? "-"} · ${out.mimeType ?? "-"} · ` +
+            `${out.htmlBytes} bytes HTML · ${out.ms} ms${out.timedOut ? " (timed out, partial)" : ""}\n`,
+    );
+    return 0;
+  } finally {
+    await browser.close();
+  }
 }
 
 /** Settings people most often change; everything else stays at its default. */
@@ -254,6 +330,8 @@ function runInit(config: Config): number {
   }
 
   mkdirSync(config.browser.profileDir, { recursive: true });
+  const browser = discoveryCheck(config);
+  out.push(`browser: ${browser.ok === false ? `NOT FOUND - ${browser.note}` : browser.note}`);
   out.push(`chrome profile: ${config.browser.profileDir}`);
   out.push(`search order: ${config.search.providers.join(" -> ")}`);
   out.push("", "Optional: run `tiny-browse login` once to accept Google's consent screen in this profile.");

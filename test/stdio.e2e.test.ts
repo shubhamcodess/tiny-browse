@@ -14,7 +14,9 @@ const built = existsSync(CLI);
 
 describe.skipIf(!built)("built CLI", () => {
   it("serves MCP over stdio and lists the tools", async () => {
-    const child = spawn(process.execPath, [CLI, "--log-level", "silent"], { stdio: ["pipe", "pipe", "pipe"] });
+    // Temp cache dir: the eager Chrome start must not touch the real tiny-browse profile.
+    const env = { ...process.env, XDG_CACHE_HOME: mkdtempSync(join(tmpdir(), "tiny-browse-cache-")) };
+    const child = spawn(process.execPath, [CLI, "--log-level", "silent"], { stdio: ["pipe", "pipe", "pipe"], env });
     const responses = new Map<number, any>();
     const lines = createInterface({ input: child.stdout });
     const waiters = new Map<number, (v: any) => void>();
