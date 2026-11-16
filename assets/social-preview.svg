@@ -13,24 +13,21 @@
     <text x="144" y="448" fill="#7EE787">$</text>
     <text x="178" y="448" fill="#F0F6FC">npx -y @shubhamcodess/tiny-browse</text>
   </g>
-  <g transform="translate(890 180) scale(0.5664)">
-    <rect width="512" height="512" rx="112" fill="#1F2430"/>
-    <rect x="60" y="96" width="392" height="314" rx="30" fill="#FFFFFF"/>
-    <path d="M60 126a30 30 0 0 1 30-30h332a30 30 0 0 1 30 30v48H60z" fill="#E6EAEF"/>
-    <circle cx="98" cy="135" r="12" fill="#FF5F57"/>
-    <circle cx="134" cy="135" r="12" fill="#FEBC2E"/>
-    <circle cx="170" cy="135" r="12" fill="#28C840"/>
-    <rect x="204" y="111" width="226" height="48" rx="24" fill="#FFFFFF"/>
-    <circle cx="234" cy="133" r="11" fill="none" stroke="#1A7F37" stroke-width="5.5"/>
-    <path d="M242 141l9 9" stroke="#1A7F37" stroke-width="5.5" stroke-linecap="round"/>
-    <text x="264" y="146" font-family="'SF Mono', Menlo, Consolas, 'DejaVu Sans Mono', monospace" font-size="32" font-weight="600" fill="#1F2430">tiny</text>
-    <g stroke="#1A7F37" stroke-width="14" stroke-linecap="round">
-      <path d="M152 206l-10 92"/><path d="M188 206l-10 92"/>
-      <path d="M120 236h90"/><path d="M114 270h90"/>
-    </g>
-    <rect x="236" y="214" width="176" height="22" rx="11" fill="#1F2430"/>
-    <rect x="236" y="256" width="126" height="18" rx="9" fill="#C9D3DD"/>
-    <rect x="112" y="320" width="300" height="18" rx="9" fill="#C9D3DD"/>
-    <rect x="112" y="354" width="216" height="18" rx="9" fill="#C9D3DD"/>
+  <defs><filter id="logo-shadow" x="-20%" y="-20%" width="140%" height="150%"><feDropShadow dx="0" dy="14" stdDeviation="18" flood-color="#000" flood-opacity="0.75"/></filter></defs>
+  <g transform="translate(890 180) scale(0.5664)" filter="url(#logo-shadow)">
+  <rect width="512" height="512" rx="112" fill="#0c0c0b"/>
+  <rect x="4" y="4" width="504" height="504" rx="108" fill="none" stroke="#ffffff" stroke-opacity="0.1" stroke-width="8"/>
+  <g stroke="#7fd4a0" stroke-width="22" stroke-linecap="round">
+    <path d="M128 100 116 196"/><path d="M168 100 156 196"/>
+    <path d="M98 128h96"/><path d="M92 168h96"/>
+  </g>
+  <rect x="222" y="124" width="196" height="36" rx="18" fill="#edece8"/>
+  <rect x="96" y="232" width="320" height="26" rx="13" fill="#5f5e58"/>
+  <rect x="96" y="292" width="200" height="26" rx="13" fill="#5f5e58"/>
+  <rect x="96" y="352" width="128" height="26" rx="13" fill="#5f5e58"/>
+  <circle cx="340" cy="342" r="64" fill="#0c0c0b" stroke="#edece8" stroke-width="22"/>
+  <rect x="304" y="318" width="72" height="20" rx="10" fill="#7fd4a0"/>
+  <rect x="304" y="348" width="46" height="20" rx="10" fill="#7fd4a0" fill-opacity="0.55"/>
+  <path d="M388 390l44 44" stroke="#edece8" stroke-width="30" stroke-linecap="round"/>
   </g>
 </svg>

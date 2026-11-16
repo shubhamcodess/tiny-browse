@@ -9,6 +9,7 @@ tiny-browse searches **Google in the Chrome you already have**, reads the best r
 [![Node](https://img.shields.io/badge/node-%3E%3D22-339933?style=flat-square&logo=nodedotjs&logoColor=white)](https://nodejs.org)
 [![CI](https://img.shields.io/github/actions/workflow/status/shubhamcodess/tiny-browse/ci.yml?branch=main&style=flat-square&label=CI&logo=githubactions&logoColor=white)](https://github.com/shubhamcodess/tiny-browse/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue?style=flat-square)](LICENSE)
+[![Website](https://img.shields.io/badge/website-tiny--browse-0c0c0b?style=flat-square)](https://shubhamcodess.github.io/tiny-browse/)
 ---
 [![npm total downloads](https://img.shields.io/npm/d18m/@shubhamcodess/tiny-browse?style=flat-square&logo=npm&label=total)](https://www.npmjs.com/package/@shubhamcodess/tiny-browse)
 ---
@@ -101,7 +102,7 @@ const docs = await webFetch({ urls: ["https://go.dev/doc/effective_go"], focus: 
 console.log(docs.pages[0].markdown);
 ```
 
-Each call starts what it needs and shuts it down before returning, so short-lived CLIs exit straight away. Use `createClient()` to reuse one Chrome across calls, `mode: "http"` to skip Chrome entirely, and `TinyBrowseError.code` to handle failures. Full API: [LIBRARY.md](docs/LIBRARY.md).
+Each call starts what it needs and shuts it down before returning, so short-lived CLIs exit straight away. Use `createClient()` to reuse one Chrome across calls, `mode: "http"` to skip Chrome entirely, and `TinyBrowseError.code` to handle failures. Full API: [LIBRARY.md](docs/LIBRARY.md). Handling each error: [ERRORS.md](docs/ERRORS.md).
 
 ## How it works
 
@@ -129,11 +130,14 @@ Each call starts what it needs and shuts it down before returning, so short-live
 
 ## Documentation
 
+The same guides as one page: [shubhamcodess.github.io/tiny-browse/docs](https://shubhamcodess.github.io/tiny-browse/docs/).
+
 | | |
 |---|---|
 | [Configuration](docs/CONFIGURATION.md) | Settings, rate limits, environment variables, flags |
 | [MCP tools and server](docs/TOOLS.md) | Tool parameters, output, HTTP server |
 | [Library API](docs/LIBRARY.md) | Functions, options, errors, lifecycle |
+| [Errors](docs/ERRORS.md) | Error codes, what to retry, handlers |
 | [Design notes](docs/DESIGN.md) | Architecture and findings |
 | [Contributing](CONTRIBUTING.md) | Development setup and releases |
 | [Security](SECURITY.md) | Reporting vulnerabilities, threat model |

@@ -112,6 +112,8 @@ try {
 }
 ```
 
+What each code means, which ones are safe to retry, and handlers for each: [ERRORS.md](ERRORS.md).
+
 ## Lifecycle
 
 - Importing has no side effects: no files, no Chrome, no output.
