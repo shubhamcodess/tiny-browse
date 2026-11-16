@@ -50,7 +50,7 @@ jobs:
           BASE_PATH: ${{ steps.pages.outputs.base_path }}/
           # absolute URL for canonical, OG tags, sitemap and llms.txt; follows a custom domain automatically
           SITE_URL: ${{ steps.pages.outputs.base_url }}/
-      - uses: actions/upload-pages-artifact@v3
+      - uses: actions/upload-pages-artifact@v5
         with:
           path: site/dist
 
