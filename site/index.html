@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#fafaf8" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#0c0c0b" media="(prefers-color-scheme: dark)" />
+    <title>tiny-browse: web search and page reading for local AI agents, as an MCP server and Node.js library</title>
+    <meta name="description" content="Give your local AI agent the web in 126 kB. tiny-browse searches Google in your installed Chrome and returns clean Markdown inside a hard token budget. MCP server and zero-dependency Node.js library. No API keys." />
+    <meta name="keywords" content="MCP server, web search MCP, web fetch, local AI agent web access, local agent web search, Claude Code web search, local LLM web search, Chrome DevTools Protocol, Markdown extraction, Node.js library, token budget" />
+    <link rel="canonical" href="%SITE_URL%" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="apple-touch-icon" href="/icon-180.png" />
+    <link rel="manifest" href="/site.webmanifest" />
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="tiny-browse" />
+    <meta property="og:title" content="tiny-browse: give your local AI agent the web, in 126 kB" />
+    <meta property="og:description" content="Searches Google in the Chrome you already have and returns clean Markdown inside a hard token budget. An MCP server for your local agent and a zero-dependency Node.js library." />
+    <meta property="og:url" content="%SITE_URL%" />
+    <meta property="og:image" content="%SITE_URL%og.png" />
+    <meta property="og:image:width" content="1280" />
+    <meta property="og:image:height" content="640" />
+    <meta property="og:image:alt" content="tiny-browse: Give your local AI agent the web, in 126 kB. MCP server and Node.js library, zero dependencies." />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="tiny-browse: give your local AI agent the web, in 126 kB" />
+    <meta name="twitter:description" content="Searches Google in the Chrome you already have and returns clean Markdown inside a hard token budget. MCP server and Node.js library." />
+    <meta name="twitter:image" content="%SITE_URL%og.png" />
+    <link rel="alternate" type="text/plain" title="LLM summary" href="%SITE_URL%llms.txt" />
+    <!--jsonld-->
+    <script>
+      (function () {
+        try {
+          var t = localStorage.getItem('tb-theme');
+          if (t !== 'light' && t !== 'dark') {
+            t = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+          }
+          document.documentElement.setAttribute('data-theme', t);
+          document.documentElement.classList.add('js');
+        } catch (e) {
+          document.documentElement.setAttribute('data-theme', 'light');
+        }
+      })();
+    </script>
+  </head>
+  <body>
+    <div id="root"><!--app--></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

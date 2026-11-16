@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#fafaf8" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#0c0c0b" media="(prefers-color-scheme: dark)" />
+    <title>Docs · tiny-browse: MCP server and Node.js library API</title>
+    <meta name="description" content="tiny-browse documentation: install, connect a local agent, the webSearch / webFetch / createClient library API, error codes and how to handle them, MCP tool parameters, the HTTP server and configuration." />
+    <link rel="canonical" href="%SITE_URL%docs/" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="apple-touch-icon" href="/icon-180.png" />
+    <link rel="manifest" href="/site.webmanifest" />
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="tiny-browse" />
+    <meta property="og:title" content="tiny-browse docs: MCP tools, library API and errors" />
+    <meta property="og:description" content="Install, connect a local agent, call webSearch and webFetch from Node.js, and handle every TinyBrowseError code." />
+    <meta property="og:url" content="%SITE_URL%docs/" />
+    <meta property="og:image" content="%SITE_URL%og.png" />
+    <meta property="og:image:width" content="1280" />
+    <meta property="og:image:height" content="640" />
+    <meta property="og:image:alt" content="tiny-browse: Give your local AI agent the web, in 126 kB." />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="tiny-browse docs: MCP tools, library API and errors" />
+    <meta name="twitter:description" content="Install, connect a local agent, call webSearch and webFetch from Node.js, and handle every TinyBrowseError code." />
+    <meta name="twitter:image" content="%SITE_URL%og.png" />
+    <link rel="alternate" type="text/plain" title="LLM summary" href="%SITE_URL%llms.txt" />
+    <!--jsonld-docs-->
+    <script>
+      (function () {
+        try {
+          var t = localStorage.getItem('tb-theme');
+          if (t !== 'light' && t !== 'dark') {
+            t = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+          }
+          document.documentElement.setAttribute('data-theme', t);
+          document.documentElement.classList.add('js');
+        } catch (e) {
+          document.documentElement.setAttribute('data-theme', 'light');
+        }
+      })();
+    </script>
+  </head>
+  <body>
+    <div id="root"><!--app--></div>
+    <script type="module" src="/src/docs-main.tsx"></script>
+  </body>
+</html>
