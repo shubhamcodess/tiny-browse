@@ -10,6 +10,7 @@ tiny-browse searches **Google in the Chrome you already have**, reads the best r
 [![CI](https://img.shields.io/github/actions/workflow/status/shubhamcodess/tiny-browse/ci.yml?branch=main&style=flat-square&label=CI&logo=githubactions&logoColor=white)](https://github.com/shubhamcodess/tiny-browse/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue?style=flat-square)](LICENSE)
 [![Website](https://img.shields.io/badge/website-tiny--browse-0c0c0b?style=flat-square)](https://shubhamcodess.github.io/tiny-browse/)
+[![M8ven Score](https://m8ven.ai/badge/mcp/shubhamcodess-tiny-browse-11ez9y?v=e6664fc46ee2cce55cf494b9d75d1f9a)](https://m8ven.ai/mcp/shubhamcodess-tiny-browse-11ez9y?s=readme)
 ---
 [![npm total downloads](https://img.shields.io/npm/d18m/@shubhamcodess/tiny-browse?style=flat-square&logo=npm&label=total)](https://www.npmjs.com/package/@shubhamcodess/tiny-browse)
 ---
